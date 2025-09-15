@@ -30,9 +30,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     List<PlayerSquad> PlayerSquads = new List<PlayerSquad>();
     public class PlayerSquad
     {
-        public int Id { get; set; }
+        public int Id { get; set; } = 0;
         public int TeamNum { get; set; } = 0;
         public string SquadName { get; set; } = "Alpha";
+        public int TotaltRevives { get; set; } = 0;
+        public int TotalKills { get; set; } = 0;
+        public int TotalAssists { get; set; } = 0;
         public Dictionary<CCSPlayerController, PlayerClassType> Members { get; set; } = new Dictionary<CCSPlayerController, PlayerClassType>();
     }
     private void SetPlayerNameAndClan(CCSPlayerController player)
@@ -184,6 +187,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public PlayerSquad GetPlayerSquad(CCSPlayerController player)
     {
         return PlayerSquads.FirstOrDefault(s => s.Members.ContainsKey(player));
+    }
+    /// <summary>
+    /// Find the best squad based on total combined stats (equal weights)
+    /// </summary>
+    /// <param name="teamNum">Team number to filter squads (0 = all teams)</param>
+    /// <returns>The best squad or null if no squads exist</returns>
+    public PlayerSquad? GetBestSquad(int teamNum = 0)
+    {
+        if (PlayerSquads == null || PlayerSquads.Count == 0) return null;
+
+        var squadsToConsider = teamNum == 0 ? PlayerSquads : PlayerSquads.Where(s => s.TeamNum == teamNum);
+        
+        return squadsToConsider.OrderByDescending(s => s.TotalKills + s.TotaltRevives + s.TotalAssists).FirstOrDefault();
     }
     public bool IsPlayerSquadmate(CCSPlayerController player, CCSPlayerController player2)
     {

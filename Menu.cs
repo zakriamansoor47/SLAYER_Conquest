@@ -31,7 +31,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 {
     private void CTFSettingsMenu(CCSPlayerController player)
     {
-        if (player == null || !player.IsValid) return;
+        // Ensure player is valid and match is ongoing
+        if (player == null || !player.IsValid || MatchStatus.Status != MatchStatusType.Ongoing) return;
 
         var manager = GetMenuManager();
         if (manager == null) return;
@@ -62,6 +63,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DeployCameraPositionChanged", $"{DeployCameraPosition}", $"{p.PlayerPawn.Value.AbsOrigin!}"]}");
             DeployCameraPosition = p.PlayerPawn.Value.AbsOrigin!; // Set the deploy camera position to the player's current position
+            fileHandler.SaveFlagPositions();
+        });
+
+        settingsMenu.AddOption($"{Localizer["Menu.ChangeMatchEndCameraPosition"]}", (p, option) =>
+        {
+            var position = new Vector(p.PlayerPawn.Value.AbsOrigin.X, p.PlayerPawn.Value.AbsOrigin.Y, p.PlayerPawn.Value.AbsOrigin.Z+64); // player eye position
+            p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchEndCameraPositionChanged", $"({MatchEndCameraPosition.Item1} | {MatchEndCameraPosition.Item2})", $"({position} | {p.PlayerPawn.Value.AbsRotation!})"]}");
+            MatchEndCameraPosition = (position, p.PlayerPawn.Value.AbsRotation!); // Set the match end camera position to the player's current position
             fileHandler.SaveFlagPositions();
         });
 

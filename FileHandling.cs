@@ -53,6 +53,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public class CaptureTheFlagMapConfig
         {
             public string DeployCameraPosition { get; set; } = "0 0 2500"; // Default position for the deploy camera
+            public string MatchEndCameraPosition { get; set; } = "0 0 2500"; // Default position for the match end camera
             public Dictionary<string, FlagData> FlagPositions { get; set; } = new Dictionary<string, FlagData>(); // Dictionary to hold flag positions
         }
         private SLAYER_CaptureTheFlag plugin; // Reference to the plugin instance
@@ -89,6 +90,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // Save the quest positions to a file
         public void SaveFlagPositions()
         {
+            // Only save if the match is not ended
+            if (plugin.MatchStatus.Status != MatchStatusType.Ongoing) return;
             try
             {
                 string configPath = GetMapFlagPositionConfigPath();
@@ -119,6 +122,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 string json = JsonSerializer.Serialize(new CaptureTheFlagMapConfig
                 {
                     DeployCameraPosition = ConvertVectorToString(plugin.DeployCameraPosition),
+                    MatchEndCameraPosition = $"{ConvertVectorToString(plugin.MatchEndCameraPosition.Item1)};{ConvertQAngleToString(plugin.MatchEndCameraPosition.Item2)}",
                     FlagPositions = flagData
                 }, new JsonSerializerOptions { WriteIndented = true });
 
@@ -146,6 +150,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 var data = JsonSerializer.Deserialize<CaptureTheFlagMapConfig>(json, new JsonSerializerOptions { WriteIndented = true });
 
                 plugin.DeployCameraPosition = ConvertStringToVector(data.DeployCameraPosition);
+                var matchEndCameraPosition = data.MatchEndCameraPosition.Split(';');
+                plugin.MatchEndCameraPosition = (ConvertStringToVector(matchEndCameraPosition[0]), ConvertStringToQAngle(matchEndCameraPosition[1]));
 
                 if (data != null && data.FlagPositions.Any())
                 {

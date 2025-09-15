@@ -194,6 +194,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     // Globals
     public readonly Random _random = new Random();
     public Vector DeployCameraPosition = new Vector(0, 0, 2500); // Default deploy camera position
+    public (Vector, QAngle) MatchEndCameraPosition = (new Vector(0, 0, 0), new QAngle(0, 0, 0)); // Default match end camera position
     
     public FileHandling fileHandler;
     public Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?> ThirdPerson = new Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?>();
@@ -236,6 +237,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             CheckReviveOnTick();
             // Print center message on tick, if any
             PrintCenterMessageTick();
+            // Match status on tick
+            MatchStatusOnTick();
             // Update third-person cameras for players
             if (Config.AllowThirdPerson && ThirdPerson.Count > 0)
             {
@@ -286,10 +289,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 // If the match has ended, hide all players from everyone
                 if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
                 {
-                    foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+                    // Hide all players from this player, except themselves cause that breaks stuff
+                    foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
                     {
-                        info.TransmitEntities.Remove(p.Pawn);
+                        info.TransmitEntities.Remove(p.PlayerPawn.Value.Index);
                     }
+                    continue;
                 }
 
                 // If this player has no seeable glows, hide all glows from them
@@ -455,6 +460,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var player = @event.Userid;
             if (player == null || !player.IsValid) return HookResult.Continue;
 
+            SetPlayerScale(player, 1f); // Reset player scale to normal
             if (!PlayerStatuses.ContainsKey(player))
             {
                 PlayerStatuses[player] = new PlayerStatus();
@@ -508,6 +514,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             var player = @event.Userid;
             var attacker = @event.Attacker;
+
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
             if (attacker == null || !attacker.IsValid || attacker.Pawn.Value == null) return HookResult.Continue;
 
@@ -526,6 +533,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var player = @event.Userid;
             var weapon = @event.Weapon;
             var attacker = @event.Attacker;
+            var assister = @event.Assister;
+
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
 
             if (PlayerStatuses.ContainsKey(player)) PlayerStatuses[player].Status = PlayerStatusType.Injured;
@@ -535,16 +544,26 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             SetGlowOnPlayerWhoRequestingMedic(player);
             AddTimer(0.5f, () => RequestRevive(player)); // Auto Request Revive
 
-            // Show kill info in center of the screen
-            if (Config.ShowKillInfoInCenter && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+            // Update squads stats
+            if (assister != null && assister.IsValid)
             {
-                var PlayerName = player.PlayerName;
-                if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
-                var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
-                if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
-                else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
-                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                var assisterSquad = GetPlayerSquad(assister);
+                if (assisterSquad != null) assisterSquad.TotalAssists += 1; // Increase squad total assists by 1
             }
+            var attackerSquad = GetPlayerSquad(attacker);
+            if (attackerSquad != null) attackerSquad.TotalKills += 1; // Increase squad total kills by 1
+            
+
+            // Show kill info in center of the screen
+                if (Config.ShowKillInfoInCenter && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+                {
+                    var PlayerName = player.PlayerName;
+                    if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
+                    var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
+                    if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
+                    else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
+                    UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                }
             // Play kill sound to the attacker
             if (Config.PlayKillSounds && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
             {
@@ -682,6 +701,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 player.PlayerPawn.Value.CameraServices.ViewEntity.Raw = uint.MaxValue;
                 Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
             }
+            SetPlayerScale(player, 1f); // Reset player scale to normal
 
             // Remove and dispose the third person camera prop
             if (ThirdPerson[player] != null && ThirdPerson[player].IsValid)

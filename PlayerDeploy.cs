@@ -184,6 +184,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         player.Respawn(); // Respawn the player
         player.PlayerPawn.Value.Teleport(spawnPosition, null, new Vector(0, 0 , 50)); // Teleport the player to the deploy position
+        AddTimer(0.1f, () => // If the player is stuck, find spawn position again
+        {
+            if (IsPlayerStuck(player)) SpawnPlayerAtDeployPosition(player, deployPosition); // Try again
+        }); 
         return true;
     }
     private unsafe Vector? FindSafeSpawnVolume(Vector basePos, QAngle facing, CCSPlayerController player)

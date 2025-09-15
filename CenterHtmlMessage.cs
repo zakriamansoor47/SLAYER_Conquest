@@ -27,7 +27,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             // Calculate elapsed time
             float elapsedTime = Server.CurrentTime - line.Value.Item4;
             float remainingTime = line.Value.Item2 - elapsedTime;
-            if (remainingTime < 0f) { RemoveCenterMessageLine(line.Key); return; } // Skip expired lines
+            if (line.Value.Item2 > 0f && remainingTime < 0f) { RemoveCenterMessageLine(line.Key); return; } // Skip expired lines
         }
 
         // Sort lines once

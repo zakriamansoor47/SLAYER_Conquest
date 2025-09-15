@@ -85,6 +85,22 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return loadingText;
     }
+    private void SetPlayerScale(CCSPlayerController player, float scale)
+    {
+        if(player == null || !player.IsValid || player.PlayerPawn.Value == null) return;
+        var skeletonInstance = player.PlayerPawn.Value!.CBodyComponent?.SceneNode?.GetSkeletonInstance();
+        if (skeletonInstance != null)
+        {
+            skeletonInstance.Scale = scale;
+        }
+
+        player.PlayerPawn.Value.AcceptInput("SetScale", null, null, scale.ToString());
+
+        Server.NextFrame(() =>
+        {
+            Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_CBodyComponent");
+        });
+    }
     public string RemoveWeaponPrefix(string weaponName)
     {
         if (string.IsNullOrEmpty(weaponName)) return weaponName;
@@ -139,7 +155,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public static void FreezePlayer(CCSPlayerController? player)
     {
-        if (player == null || !player.IsValid) return;
+        if (player == null || !player.IsValid || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || player.PlayerPawn.Value.MoveType == MoveType_t.MOVETYPE_NONE) return;
 
         player.PlayerPawn.Value.MoveType = MoveType_t.MOVETYPE_NONE;
         Schema.SetSchemaValue(player.PlayerPawn.Value.Handle, "CBaseEntity", "m_nActualMoveType", 0); // freeze
@@ -147,7 +163,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public static void UnFreezePlayer(CCSPlayerController? player)
     {
-        if (player == null || !player.IsValid) return;
+        if (player == null || !player.IsValid || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || player.PlayerPawn.Value.MoveType == MoveType_t.MOVETYPE_WALK) return;
         player.PlayerPawn.Value.MoveType = MoveType_t.MOVETYPE_WALK;
         Schema.SetSchemaValue(player.PlayerPawn.Value.Handle, "CBaseEntity", "m_nActualMoveType", 2); // walk
         Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_MoveType");
@@ -195,10 +211,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
     }
 
-    public void StopPlayingSounds(int soundevent_guid, RecipientFilter? recipients = null)
+    public void StopPlayingSound(uint soundevent_guid, RecipientFilter? recipients = null)
     {
         UserMessage message = UserMessage.FromId(209);
-        message.SetInt("soundevent_guid", soundevent_guid);
+        message.SetUInt("soundevent_guid", soundevent_guid);
         if (recipients != null) message.Recipients = recipients;
         else message.Recipients.AddAllPlayers();
         message.Send();
@@ -492,6 +508,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (vector == null) return null;
         return $"{vector.X} {vector.Y} {vector.Z}";
     }
+    private static string ConvertQAngleToString(QAngle angle)
+    {
+        if (angle == null) return null;
+        return $"{angle.X} {angle.Y} {angle.Z}";
+    }
     private static Vector ConvertStringToVector(string vectorString)
     {
         if (string.IsNullOrWhiteSpace(vectorString))
@@ -517,7 +538,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return null; // Return null or handle parsing error
     }
-    private QAngle ConvertStringToQAngle(string vectorString)
+    private static QAngle ConvertStringToQAngle(string vectorString)
     {
         if (string.IsNullOrWhiteSpace(vectorString))
             return null;
@@ -639,7 +660,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public void StopShootingForSpecificTime(CCSPlayerController? player, float Time = -1f)
     {
-        if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value == null)
+        if (player == null || !player.IsValid || player.PlayerPawn.Value == null  || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value == null)
             return;
 
         player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value!.NextPrimaryAttackTick = Server.TickCount + 5000000;
@@ -704,6 +725,17 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (!trace.HasValue) return null;
 
         return ConvertVector3ToVector(trace.Value.EndPos);
+    }
+    public bool IsPlayerStuck(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return false;
+        
+        var movmentServices = player.PlayerPawn.Value!.MovementServices!.As<CCSPlayer_MovementServices>();
+        if (movmentServices != null && !movmentServices.InStuckTest && movmentServices.StuckLast > 0)
+        {
+            return true;
+        }
+        return false;
     }
     public bool IsPlayerDetected(Vector _origin, Vector _endOrigin, CCSPlayerController? player = null)
     {
@@ -808,6 +840,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         Vector forward = new((float)Math.Cos(radianY) * distance, (float)Math.Sin(radianY) * distance, 0);
         return playerPosition + forward;
     }
+    /// <summary>
+    /// Gets a position at a specified distance and direction from the current position
+    /// </summary>
+    /// <param name="currentPosition">The current position</param>
+    /// <param name="currentRotation">The current rotation</param>
+    /// <param name="distance">Distance to move (positive = forward, negative = backward)</param>
+    /// <param name="angleOffset">Additional angle offset in degrees (0 = forward, 180 = backward, 90 = right, -90 = left)</param>
+    /// <returns>New position at the specified distance and direction</returns>
+    public Vector GetPositionAtDirection(Vector currentPosition, QAngle currentRotation, float distance, float angleOffset = 0f)
+    {
+        if (currentPosition == null || currentRotation == null) 
+            return currentPosition;
+        // Add angle offset to current yaw
+        float totalYaw = (currentRotation.Y + angleOffset) * (float)(Math.PI / 180);
+        Vector direction= new((float)Math.Cos(totalYaw) * distance, (float)Math.Sin(totalYaw) * distance, 0);
+        return currentPosition + direction;
+    }
+
     private List<CBeam> DrawBeaconCircle(Vector? position, float circle_radius, int TotalBeams, Color color, float beamWidth = 2f)
     {
         if (position == null) return null;

@@ -37,8 +37,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         Ongoing,
         TerroristWin,
-        CounterTerroristWin,
-        Draw
+        CounterTerroristWin
     }
     public class MatchStatusInfo
     {
@@ -48,7 +47,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public float MatchStartTime { get; set; } = 0;
         public float MatchEndTime { get; set; } = 0f;
         public bool IsLowTicketsSoundPlaying { get; set; } = false;
-        public int LowTicketsSoundEventGuid { get; set; } = -1;
+        public List<uint> LowTicketsSoundEventGuid { get; set; } = new List<uint>();
+        public List<CPhysicsPropMultiplayer> PlayersMatchEndCamera { get; set; } = new List<CPhysicsPropMultiplayer>();
+        public Vector MatchEndCameraPosition { get; set; } = new Vector(0, 0, 0);
     }
     public float GetRemainingTeamTicketsPercentage(int team)
     {
@@ -67,20 +68,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (soundIndex < 1 || soundIndex > 5) soundIndex = 5;
         MatchStatus.IsLowTicketsSoundPlaying = true;
 
-        //get the world entity so we can emit global sounds
-        var TempEntity = Utilities.CreateEntityByName<CBaseEntity>("prop_static");
-        if (TempEntity == null || !TempEntity.IsValid) return;
-
         // Play the sound to all players
-        var recipients = new RecipientFilter();
         foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV))
         {
-            p.PrintToChat($"[CTF] Low tickets warning! Only {Math.Min(GetTeamTickets(2), GetTeamTickets(3))} tickets remaining!");
-            recipients.Add(p);
+            var soundEventGuid = p.EmitSound($"CTF.BF.MatchEndingMusic_{soundIndex}", new RecipientFilter { p }, Config.SoundsVolume);
+            MatchStatus.LowTicketsSoundEventGuid.Add(soundEventGuid);
         }
 
-        if (MatchStatus.LowTicketsSoundEventGuid != -1) StopPlayingSounds(MatchStatus.LowTicketsSoundEventGuid, recipients);
-        MatchStatus.LowTicketsSoundEventGuid = (int)TempEntity.EmitSound($"CTF.BF.MatchEndingMusic_{soundIndex}", recipients, Config.SoundsVolume);
     }
     public void StartMatch()
     {
@@ -93,26 +87,110 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // Set Team Win score to tickets (A clever way to show tickets in scoreboard)
         SetTeamScore(2, Config.TerroristTeamTickets);
         SetTeamScore(3, Config.CTerroristTeamTickets);
+
+        MatchStatus.IsLowTicketsSoundPlaying = false;
+        MatchStatus.LowTicketsSoundEventGuid.Clear();
+        MatchStatus.PlayersMatchEndCamera.Clear();
+        MatchStatus.MatchEndCameraPosition = MatchEndCameraPosition.Item1; // Save the end camera position for later use
     }
     public void EndMatch()
     {
         MatchStatus.Status = MatchStatus.TerroristTickets <= 0 ? MatchStatusType.CounterTerroristWin : MatchStatusType.TerroristWin;
         MatchStatus.MatchEndTime = Server.CurrentTime;
+        string Winner = MatchStatus.Status == MatchStatusType.TerroristWin ? "Terrorists" : "Counter-Terrorists";
+
+        foreach (var weapon in Utilities.FindAllEntitiesByDesignerName<CCSWeaponBaseGun>("weapon_").Where(w => w != null && w.IsValid))
+        {
+            weapon.Remove(); // Remove all weapons from the ground and players, so they don't interfere with the end match state
+        }
 
         // Stop the lowTicket music if it's playing
-        if (MatchStatus.LowTicketsSoundEventGuid != -1) StopPlayingSounds(MatchStatus.LowTicketsSoundEventGuid);
-        // Freeze all players and stop them from shooting
-        PlayersRedeployTimer.Clear();
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV))
+        foreach (var soundEventGuid in MatchStatus.LowTicketsSoundEventGuid)
         {
-            MenuManager.CloseMenu(player);
+            StopPlayingSound(soundEventGuid);
+        }
+
+        // Freeze all players and stop them from shooting
+        var Manager = GetMenuManager();
+        var recipientFilter = new RecipientFilter();
+        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV))
+        {
+            RemoveAllGlowOfPlayer(player); // Remove all glow effects from the player
+            if (PlayersRedeployTimer != null && PlayersRedeployTimer.ContainsKey(player))
+            {
+                if (PlayersRedeployTimer[player].Item1 != null) PlayersRedeployTimer[player].Item1?.Kill();
+                PlayersRedeployTimer.Remove(player);
+            }
+            // Close any open menu, freeze player
+            if (Manager != null) Manager.CloseMenu(player);
             FreezePlayer(player);
-            StopShootingForSpecificTime(player);
-            player.PrintToChat($"[CTF] Match ended! {(MatchStatus.Status == MatchStatusType.TerroristWin ? "Terrorists" : "Counter-Terrorists")} win!");
+            SetPlayerScale(player, 0.01f); // make player invisible
+
+            if (!player.IsBot)
+            {
+                recipientFilter.Add(player);
+                var cameraProp = CreateEndMatchCameraProp(player);
+                if (cameraProp != null)
+                {
+                    MatchStatus.PlayersMatchEndCamera.Add(cameraProp);
+                    // Play victory/defeat sound
+                    if (MatchStatus.Status == MatchStatusType.TerroristWin && player.TeamNum == 2 ) cameraProp.EmitSound("CTF.BF.Victory", new RecipientFilter { player }, Config.SoundsVolume);
+                    else if (MatchStatus.Status == MatchStatusType.CounterTerroristWin && player.TeamNum == 3) cameraProp.EmitSound("CTF.BF.Victory", new RecipientFilter { player }, Config.SoundsVolume);
+                    else cameraProp.EmitSound("CTF.BF.Defeat", new RecipientFilter { player }, Config.SoundsVolume);
+                }
+            } 
         }
 
         // Announce the match result
+        ClearAllCenterMessageLines(); // Clear any existing center message lines
+        UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner} Win</font>", recipientFilter, -1, true);
+        var bestSquad = GetBestSquad();
+        if (bestSquad != null)
+        {
+            var squadMembers = string.Join(", ", bestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
+            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {bestSquad.SquadName}</font>", recipientFilter, -1, true);
+            UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='silver'>Kills: {bestSquad.TotalKills}, Assists: {bestSquad.TotalAssists}, Revives: {bestSquad.TotaltRevives}</font>", recipientFilter, -1, true);
+            UpdateCenterMessageLine(4, $"<font class='fontSize-m' color='gold'>{squadMembers}</font>", recipientFilter, -1, true);
+        }
+    }
+    public void MatchStatusOnTick()
+    {
+        if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
+        {
+            // We teleport the match end cameras to match end position
+            MatchStatus.PlayersMatchEndCamera.ForEach(camera =>
+            {
+                if (camera != null && camera.IsValid) camera.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
+            });
+            // A clever way to make the camera slowly move backwards (A zoom out animation, I am genius)
+            if (CalculateDistanceBetween(MatchStatus.MatchEndCameraPosition, MatchEndCameraPosition.Item1) <= 100f) // If the camera is already far enough, don't move it anymore
+            {
+                var newpos = GetFrontPosition(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2, -0.1f); // Get a position slightly in back of the camera
+                MatchEndCameraPosition.Item1 = newpos; // Update the camera position to the new position
+            }
+        }
+    }
+    public CPhysicsPropMultiplayer? CreateEndMatchCameraProp(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid || player.Pawn.Value == null || player.IsBot || player.IsHLTV) return null;
 
+        var _cameraProp = Utilities.CreateEntityByName<CPhysicsPropMultiplayer>("prop_physics_multiplayer");
+        if (_cameraProp == null || !_cameraProp.IsValid) return null;
+
+        _cameraProp.AcceptInput("targetname", value: $"CTF_MatchEndCamera{player.PlayerPawn.Value.Index}");
+        _cameraProp.DispatchSpawn();
+        _cameraProp.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
+        _cameraProp.Collision.SolidFlags = 12;
+        _cameraProp.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
+        _cameraProp.TakesDamage = false;
+        _cameraProp.Render = Color.FromArgb(0, 255, 255, 255);
+
+        player.PlayerPawn.Value!.CameraServices!.ViewEntity.Raw = _cameraProp.EntityHandle.Raw; // Set the player camera to the prop
+        Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
+
+        _cameraProp.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
+
+        return _cameraProp;
     }
     public void SetTeamTickets(int team, int tickets)
     {

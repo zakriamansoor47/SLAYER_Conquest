@@ -187,6 +187,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         reviveEntry.reviver = null;
         reviveEntry.ReviverType = null;
         reviveEntry.reviveTime = 0;
+        reviveEntry.reviveDuration = 0;
         reviveEntry.status = ReviveStatus.NotReviving;
         reviveEntry.beaconBeams?.ForEach(beam => { if (beam != null && beam.IsValid) beam.Remove(); });
         reviveEntry.beaconBeams = null;
@@ -195,16 +196,23 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (player == null || !player.IsValid) return;
 
-        if(PlayersRedeployTimer.ContainsKey(player) && PlayersRedeployTimer[player].Item1 != null) // If there is an active redeploy timer, remove it
+        if (PlayersRedeployTimer.ContainsKey(player) && PlayersRedeployTimer[player].Item1 != null) // If there is an active redeploy timer, remove it
         {
             PlayersRedeployTimer[player].Item1.Kill();
             PlayersRedeployTimer.Remove(player);
         }
 
         var reviveEntry = GetPlayerReviveEntry(player);
-        if(reviveEntry == null) return;
+        if (reviveEntry == null) return;
 
-        if (reviveEntry.reviver != null) StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
+        if (reviveEntry.reviver != null)
+        {
+            StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
+            var squad = GetPlayerSquad(reviveEntry.reviver);
+            if (squad != null) squad.TotaltRevives += 1; // Increase squad total revives by 1
+            UnFreezePlayer(reviveEntry.reviver);
+        }
+
         reviveEntry.beaconBeams?.ForEach(beam => { if (beam != null && beam.IsValid) beam.Remove(); });
         reviveEntry.beaconBeams = null;
 
@@ -342,15 +350,18 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                         $"{GenerateLoadingText(Server.CurrentTime - reviveEntry.reviveTime, reviveEntry.reviveDuration)}"
                     );
                     // Keep the player facing the same direction while reviving
-                    player.PlayerPawn.Value.Teleport(angles: new QAngle(player.PlayerPawn.Value.AbsRotation.X, player.PlayerPawn.Value.AbsRotation.Y, player.PlayerPawn.Value.AbsRotation.Z));
+                    var lookAtAngle = GetLookAtAngle(new Vector(player.PlayerPawn.Value.AbsOrigin.X, player.PlayerPawn.Value.AbsOrigin.Y, player.PlayerPawn.Value.AbsOrigin.Z + 64), DeadPlayersPosition[playerBeingRevived].Item1);
+                    FreezePlayer(player);
+                    player.PlayerPawn.Value.Teleport(angles: lookAtAngle);
                 }
             }
             else // Not Pressing Use button
             {
-                if(IsPlayerReviving(player)) // Was Reviving
+                if (IsPlayerReviving(player)) // Was Reviving
                 {
                     var playerBeingRevived = GetPlayerBeingRevivedByReviver(player);
-                    if(playerBeingRevived != null) AbortReviving(playerBeingRevived);
+                    if (playerBeingRevived != null) AbortReviving(playerBeingRevived);
+                    UnFreezePlayer(player);
                 }
             }
         }

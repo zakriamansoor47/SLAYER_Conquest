@@ -156,6 +156,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public void UnstuckPlayerCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
+        
+        if(!IsPlayerStuck(player))
+        {
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.DarkRed}You are not stuck!");
+            return;
+        }
 
         var safeSpawnVolume = FindSafeSpawnVolume(player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsRotation, player);
         if (safeSpawnVolume == null) player.Respawn();
