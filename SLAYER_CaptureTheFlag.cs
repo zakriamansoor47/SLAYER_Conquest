@@ -1,0 +1,748 @@
+﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Core.Capabilities;
+using CounterStrikeSharp.API.Modules.Utils;
+using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Timers;
+using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
+using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Menu;
+using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Drawing;
+using Microsoft.Extensions.Logging;
+using System.Runtime.InteropServices;
+using T3MenuSharedApi;
+using CounterStrikeSharp.API.Modules.UserMessages;
+using CounterStrikeSharp.API.Modules.Entities;
+
+// Used these to remove compile warnings
+#pragma warning disable CS8600
+#pragma warning disable CS8602
+#pragma warning disable CS8603
+#pragma warning disable CS8604
+#pragma warning disable CS8618
+
+namespace SLAYER_CaptureTheFlag;
+
+public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
+{
+    [JsonPropertyName("FlagCaptureTime")] public float FlagCaptureTime { get; set; } = 10;
+    [JsonPropertyName("DefaultPlayerClass")] public string DefaultPlayerClass { get; set; } = "Assault";
+    [JsonPropertyName("TerroristTeamColor")] public string TerroristTeamColor { get; set; } = "orange";
+    [JsonPropertyName("CTerroristTeamColor")] public string CTerroristTeamColor { get; set; } = "royalblue"; // royal blue
+    [JsonPropertyName("FocusTheDeployCameraOnDeployPosition")] public bool FocusTheDeployCameraOnDeployPosition { get; set; } = false;
+    [JsonPropertyName("NoBlock")] public bool NoBlock { get; set; } = false;
+    [JsonPropertyName("AllowClassChangeWhileAlive")] public bool AllowClassChangeWhileAlive { get; set; } = false;
+    [JsonPropertyName("ShowPlayerClassInPlayerName")] public bool ShowPlayerClassInPlayerName { get; set; } = true;
+    [JsonPropertyName("ShowPlayerSquadNameInPlayerClan")] public bool ShowPlayerSquadNameInPlayerClan { get; set; } = true;
+    [JsonPropertyName("SetGlowOnSquadMembers")] public bool SetGlowOnSquadMembers { get; set; } = true;
+    [JsonPropertyName("ShowKillInfoInCenter")] public bool ShowKillInfoInCenter { get; set; } = true;
+    [JsonPropertyName("PlayKillSounds")] public bool PlayKillSounds { get; set; } = true;
+    [JsonPropertyName("PlayMatchEndingSound")] public bool PlayMatchEndingSound { get; set; } = true;
+    [JsonPropertyName("PlayVictorySound")] public bool PlayVictorySound { get; set; } = true;
+    [JsonPropertyName("PlayDefeatSound")] public bool PlayDefeatSound { get; set; } = true;
+    [JsonPropertyName("SoundsVolume")] public float SoundsVolume { get; set; } = 1f;
+    [JsonPropertyName("ShowKillInfoTime")] public float ShowKillInfoTime { get; set; } = 3f;
+    [JsonPropertyName("TerroristTeamTickets")] public int TerroristTeamTickets { get; set; } = 800;
+    [JsonPropertyName("CTerroristTeamTickets")] public int CTerroristTeamTickets { get; set; } = 800;
+    [JsonPropertyName("SquadmateReviveTime")] public float SquadmateReviveTime { get; set; } = 4f;
+    [JsonPropertyName("CombatTime")] public float CombatTime { get; set; } = 5f;
+    [JsonPropertyName("MedicReviveTime")] public float MedicReviveTime { get; set; } = 1.5f;
+    [JsonPropertyName("SquadmateReviveSpawnHealth")] public int SquadmateReviveSpawnHealth { get; set; } = 50;
+    [JsonPropertyName("MedicReviveSpawnHealth")] public int MedicReviveSpawnHealth { get; set; } = 100;
+    [JsonPropertyName("AbilityCooldownTime")] public int AbilityCooldownTime { get; set; } = 30;
+    [JsonPropertyName("PlayerSpawnProtectionTime")] public float PlayerSpawnProtectionTime { get; set; } = 5f;
+    [JsonPropertyName("PlayerGetRevivedTimer")] public float PlayerGetRevivedTimer { get; set; } = 30f;
+    [JsonPropertyName("PlayerRedeployDelay")] public float PlayerRedeployDelay { get; set; } = 5f;
+    [JsonPropertyName("PlayerBotRedeployDelay")] public float PlayerBotRedeployDelay { get; set; } = 10f;
+    [JsonPropertyName("RemoveDropWeaponAfterDeath")] public float RemoveDropWeaponAfterDeath { get; set; } = 15f;
+    [JsonPropertyName("AllowThirdPerson")] public bool AllowThirdPerson { get; set; } = true;
+    [JsonPropertyName("PlayerTPCameraXYOffset")] public float PlayerTPCameraXYOffset { get; set; } = -30; // prop camera XY offset
+    [JsonPropertyName("PlayerTPCameraZOffset")] public float PlayerTPCameraZOffset { get; set; } = 75; // Prop camera Z offset
+    [JsonPropertyName("PlayerTPCameraRightOffset")] public float PlayerTPCameraRightOffset { get; set; } = -10; // Prop camera right offset
+    [JsonPropertyName("SquadNames")]
+    public List<string> SquadNames { get; set; } = new List<string>
+    {
+        "Alpha",
+        "Bravo",
+        "Charlie",
+        "Delta",
+        "Phantom",
+        "Shadow",
+        "Viper",
+        "Eagle",
+        "Omega",
+        "Reaper",
+        "Nova",
+        "Titan",
+        "Ghost",
+        "Falcon",
+        "Hunter",
+        "Blaze",
+        "Rogue"
+    };
+
+    // Class weapon configurations
+    [JsonPropertyName("ClassWeapons")]
+    public Dictionary<string, ClassWeaponConfig> ClassWeapons { get; set; } = new Dictionary<string, ClassWeaponConfig>
+    {
+        ["Assault"] = new ClassWeaponConfig
+        {
+            PrimaryWeapons = new List<string> { "weapon_ak47", "weapon_m4a1", "weapon_m4a1_silencer", "weapon_aug", "weapon_sg556", "weapon_famas", "weapon_galilar" },
+            SecondaryWeapons = new List<string> { "weapon_usp_silencer", "weapon_deagle", "weapon_p250", "weapon_revolver", "weapon_fiveseven" },
+            Equipment = new List<string> { "weapon_hegrenade", "weapon_smokegrenade", "weapon_healthshot" }
+        },
+        ["Engineer"] = new ClassWeaponConfig
+        {
+            PrimaryWeapons = new List<string> { "weapon_m249", "weapon_negev", "weapon_nova", "weapon_xm1014", "weapon_sawedoff", "weapon_mag7" },
+            SecondaryWeapons = new List<string> { "weapon_glock", "weapon_tec9", "weapon_hkp2000", "weapon_p250", "weapon_elite", },
+            Equipment = new List<string> { "weapon_hegrenade", "weapon_incgrenade" }
+        },
+        ["Medic"] = new ClassWeaponConfig
+        {
+            PrimaryWeapons = new List<string> { "weapon_mp5sd", "weapon_mp7", "weapon_mp9", "weapon_bizon", "weapon_ump45", "weapon_mac10", "weapon_p90" },
+            SecondaryWeapons = new List<string> { "weapon_fiveseven", "weapon_hkp2000", "weapon_elite", "weapon_tec9", "weapon_cz75a" },
+            Equipment = new List<string> { "weapon_flashbang", "weapon_smokegrenade", "weapon_smokegrenade" }
+        },
+        ["Recon"] = new ClassWeaponConfig
+        {
+            PrimaryWeapons = new List<string> { "weapon_awp", "weapon_ssg08", "weapon_g3sg1", "weapon_scar20" },
+            SecondaryWeapons = new List<string> { "weapon_usp_silencer", "weapon_glock", "weapon_revolver", "weapon_fiveseven", "weapon_cz75a" },
+            Equipment = new List<string> { "weapon_decoy", "weapon_flashbang", "weapon_taser" }
+        }
+    };
+    
+    // Class attribute configurations
+    [JsonPropertyName("ClassAttributes")]
+    public Dictionary<string, ClassAttributeConfig> ClassAttributes { get; set; } = new Dictionary<string, ClassAttributeConfig>
+    {
+        ["Assault"] = new ClassAttributeConfig
+        {
+            Health = 100,
+            Armor = 100,
+            HasHelmet = true,
+            Speed = 1.0f,
+            Description = "Balanced combat specialist with extra grenades"
+        },
+        ["Engineer"] = new ClassAttributeConfig
+        {
+            Health = 100,
+            Armor = 150,
+            HasHelmet = true,
+            Speed = 0.9f,
+            Description = "Support specialist with extra ammo"
+        },
+        ["Medic"] = new ClassAttributeConfig
+        {
+            Health = 100,
+            Armor = 70,
+            HasHelmet = true,
+            Speed = 1.1f,
+            Description = "Support specialist with healing abilities"
+        },
+        ["Recon"] = new ClassAttributeConfig
+        {
+            Health = 100,
+            Armor = 80,
+            HasHelmet = false,
+            Speed = 0.95f,
+            Description = "Long-range specialist with sniper rifles"
+        }
+    };
+}
+// Add these classes to define the config structures
+public class ClassWeaponConfig
+{
+    [JsonPropertyName("PrimaryWeapons")] public List<string> PrimaryWeapons { get; set; } = new List<string>();
+    [JsonPropertyName("SecondaryWeapons")] public List<string> SecondaryWeapons { get; set; } = new List<string>();
+    [JsonPropertyName("Equipment")] public List<string> Equipment { get; set; } = new List<string>();
+}
+
+public class ClassAttributeConfig
+{
+    [JsonPropertyName("Health")] public int Health { get; set; } = 100;
+    [JsonPropertyName("Armor")] public int Armor { get; set; } = 0;
+    [JsonPropertyName("HasHelmet")] public bool HasHelmet { get; set; } = false;
+    [JsonPropertyName("Speed")] public float Speed { get; set; } = 1.0f;
+    [JsonPropertyName("Description")] public string Description { get; set; } = "";
+}
+public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+{
+    public override string ModuleName => "SLAYER_CaptureTheFlag";
+    public override string ModuleVersion => "1.0";
+    public override string ModuleAuthor => "SLAYER";
+    public override string ModuleDescription => "Capture the Flag Mode";
+    public required SLAYER_CaptureTheFlagConfig Config { get; set; }
+    public void OnConfigParsed(SLAYER_CaptureTheFlagConfig config)
+    {
+        Config = config;
+    }
+    public IT3MenuManager? MenuManager; // get the instance
+    public IT3MenuManager? GetMenuManager()
+    {
+        if (MenuManager == null)
+            MenuManager = new PluginCapability<IT3MenuManager>("t3menu:manager").Get();
+
+        return MenuManager;
+    }
+    // Globals
+    public readonly Random _random = new Random();
+    public Vector DeployCameraPosition = new Vector(0, 0, 2500); // Default deploy camera position
+    
+    public FileHandling fileHandler;
+    public Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?> ThirdPerson = new Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?>();
+    public Dictionary<CCSPlayerController, (Vector, QAngle)> DeadPlayersPosition = new Dictionary<CCSPlayerController, (Vector, QAngle)>();
+    public Dictionary<CCSPlayerController, (Timer, float)> DeadPlayersTimer = new Dictionary<CCSPlayerController, (Timer, float)>();
+    public Dictionary<CCSPlayerController, (Timer, float)> PlayersRedeployTimer = new Dictionary<CCSPlayerController, (Timer, float)>();
+    public Dictionary<CCSPlayerController, List<PlayerGlow>> PlayerSeeableGlow = new Dictionary<CCSPlayerController, List<PlayerGlow>>();
+    public Dictionary<CBasePlayerWeapon, float> RemoveDropWeaponTimer = new Dictionary<CBasePlayerWeapon, float>();
+    public Timer? UpdatePlayerStatesTimer = null;
+    public override void Load(bool hotReload)
+    {
+        ClearStuff(); // Clear all previous data
+
+        // Load the map config file
+        fileHandler = new FileHandling(this);
+        fileHandler.LoadFlagPositions();
+
+        // Initialize player classes
+        InitializePlayerClasses();
+
+        RegisterListener<Listeners.OnServerPrecacheResources>((manifest) =>
+        {
+            // Add resources to the manifest for pre-caching
+            manifest.AddResource("models/slayer/flagpole/flagpole.vmdl");
+            manifest.AddResource("models/slayer/ammo_box/ammo_box.vmdl");
+            manifest.AddResource("models/slayer/ammo_pouch/ammo_pouch.vmdl");
+            manifest.AddResource("models/slayer/claymore/claymore.vmdl");
+            manifest.AddResource("models/slayer/medic_kit/medic_kit.vmdl");
+            manifest.AddResource("models/slayer/medic_pouch/medic_pouch.vmdl");
+            manifest.AddResource("models/slayer/radio/radio.vmdl");
+            manifest.AddResource("soundevents/slayer_capturetheflag.vsndevts");
+        });
+        RegisterListener<Listeners.OnMapStart>((mapname) =>
+        {
+            ClearStuff(); // Clear all previous data
+        });
+        RegisterListener<Listeners.OnTick>(() =>
+        {
+            // Check for player revives
+            CheckReviveOnTick();
+            // Print center message on tick, if any
+            PrintCenterMessageTick();
+            // Update third-person cameras for players
+            if (Config.AllowThirdPerson && ThirdPerson.Count > 0)
+            {
+                foreach (var player in ThirdPerson.ToList())
+                {
+                    if (player.Key == null || !player.Key.IsValid || player.Key.Connected != PlayerConnectedState.PlayerConnected || player.Key.IsBot || player.Key.IsHLTV || player.Key.TeamNum < 2)
+                    {
+                        ThirdPerson.Remove(player.Key!);
+                        player.Key!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
+                        Utilities.SetStateChanged(player.Key.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+                        continue;
+                    }
+                    else
+                    {
+                        UpdateCameraSmooth(player.Value!, player.Key);
+                    }
+                }
+            }
+            foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value != null && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+            {
+                if (Config.AllowThirdPerson && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Attack2")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
+                {
+                    if (ThirdPerson.ContainsKey(player)) // If the player is in third-person mode, switch to first-person
+                    {
+                        ThirdPerson.Remove(player); // Remove the player from third-person dictionary with a slight delay
+                        player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue; // Reset the camera view entity
+                        Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}first-person {ChatColors.Gold}mode.");
+                    }
+                    else if (!ThirdPerson.ContainsKey(player)) // If the player is not in third-person mode, switch to third-person
+                    {
+                        ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}third-person {ChatColors.Gold}mode.");
+                    }
+                    AddTimer(0.5f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
+                    PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                }
+            }
+        });
+        RegisterListener<Listeners.CheckTransmit>((CCheckTransmitInfoList infoList) =>
+        {
+            // Go through every received info
+            foreach ((CCheckTransmitInfo info, CCSPlayerController? player) in infoList)
+            {
+                // If no player is found or the player is invalid, continue
+                if (player == null || !player.IsValid) continue;
+
+                // If the match has ended, hide all players from everyone
+                if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
+                {
+                    foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+                    {
+                        info.TransmitEntities.Remove(p.Pawn);
+                    }
+                }
+
+                // If this player has no seeable glows, hide all glows from them
+                if (!PlayerSeeableGlow.ContainsKey(player))
+                {
+                    // Hide all glows from this player
+                    foreach (var otherPlayerGlows in PlayerSeeableGlow.Values)
+                    {
+                        if (otherPlayerGlows == null || otherPlayerGlows.Count == 0) continue;
+
+                        foreach (var glowGroup in otherPlayerGlows)
+                        {
+                            if (glowGroup?.Glows == null || glowGroup.Glows.Count == 0) continue;
+
+                            foreach (var glow in glowGroup.Glows)
+                            {
+                                if (glow != null && glow.IsValid)
+                                {
+                                    info.TransmitEntities.Remove(glow);
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
+
+                // Get this player's allowed glows
+                var playerAllowedGlows = new HashSet<CDynamicProp>();
+                foreach (var glowGroup in PlayerSeeableGlow[player])
+                {
+                    if (glowGroup?.Glows == null || glowGroup.Glows.Count == 0) continue;
+
+                    foreach (var glow in glowGroup.Glows)
+                    {
+                        if (glow != null && glow.IsValid)
+                        {
+                            playerAllowedGlows.Add(glow);
+                        }
+                    }
+                }
+
+                // Hide all glows that are NOT in this player's allowed list
+                foreach (var otherPlayerGlows in PlayerSeeableGlow.Values)
+                {
+                    if (otherPlayerGlows == null || otherPlayerGlows.Count == 0) continue;
+
+                    foreach (var glowGroup in otherPlayerGlows)
+                    {
+                        if (glowGroup?.Glows == null || glowGroup.Glows.Count == 0) continue;
+
+                        foreach (var glow in glowGroup.Glows)
+                        {
+                            if (glow != null && glow.IsValid && !playerAllowedGlows.Contains(glow))
+                            {
+                                info.TransmitEntities.Remove(glow);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        RegisterEventHandler<EventRoundStart>((@event, @info) =>
+        {
+            // Execute server commands 
+            Server.ExecuteCommand("mp_give_player_c4 0");
+            Server.ExecuteCommand($"mp_autoteambalance 0");
+            Server.ExecuteCommand($"mp_limitteams 0");
+            Server.ExecuteCommand($"mp_drop_grenade_enable 0");
+            Server.ExecuteCommand($"mp_drop_knife_enable 0");
+            Server.ExecuteCommand($"mp_death_drop_c4 0");
+            Server.ExecuteCommand($"mp_death_drop_defuser 0");
+            Server.ExecuteCommand($"mp_death_drop_grenade 0");
+            Server.ExecuteCommand($"mp_death_drop_healthshot 0");
+            Server.ExecuteCommand($"mp_death_drop_taser 0");
+            Server.ExecuteCommand($"bot_controllable 0");
+            Server.ExecuteCommand($"bot_prefix \"\""); // Clear bot prefix
+            Server.ExecuteCommand($"mp_ignore_round_win_conditions 1");
+            Server.ExecuteCommand($"mp_spawnprotectiontime {Config.PlayerSpawnProtectionTime}");
+            Server.ExecuteCommand($"mp_buytime 0"); // Disable buy zone
+            if(Config.NoBlock) Server.ExecuteCommand($"mp_solid_teammates 0");
+            else Server.ExecuteCommand($"mp_solid_teammates 1");
+
+
+            RemoveObjectives(); // Remove any existing objectives
+            // Reset ability cooldowns at round start if desired
+            ClearStuff(); // Clear all previous data
+
+            fileHandler.LoadFlagPositions();
+
+            foreach (var flag in FlagPositions.Where(f => f.Key != null && f.Value != null))
+            {
+                // Create the flag entity
+                CreateFlag(flag.Key, flag.Value);
+            }
+
+            FlagTimer = AddTimer(0.05f, () =>
+            {
+                UpdateFlagsStatus(); // Update all flags status
+            }, TimerFlags.REPEAT);
+
+            StartMatch();
+
+            foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+            {
+                if (player.Pawn.Value != null && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
+                {
+                    AddDeployPosition(player, player.Pawn.Value.AbsOrigin!, player.Pawn.Value.AbsRotation!); // Add default deploy positions for players
+                }
+            }
+
+            // Update player states every 0.5 seconds
+            UpdatePlayerStatesTimer = AddTimer(0.5f, () =>
+            {
+                UpdateReviveStatus(); // Update revive status every second
+                foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+                {
+                    if (PlayerStatuses.ContainsKey(player))
+                    {
+                        PlayerStatuses[player].CapturingFlag = IsPlayerInAnyFlagSquare(player);
+                        if (PlayerStatuses[player].Status == PlayerStatusType.Combat)
+                        {
+                            if (Server.CurrentTime - PlayerStatuses[player].LastCombatTime > Config.CombatTime) // If the player has not been in combat for more than 5 seconds, set their status to alive
+                                PlayerStatuses[player].Status = PlayerStatusType.Alive;
+                        }
+                    }
+                    else PlayerStatuses[player] = new PlayerStatus();
+                    UpdatePlayerDeployPositions(player);
+                    SetGlowOnMedic(player); // Set glow on the medic to indicate the revive request
+                    SetGlowOnSquadMembers(player); // Set glow on squad members if enabled
+                    SetPlayerNameAndClan(player); // Set player name and clan tag
+                }
+                // Remove dropped weapons after a certain time
+                foreach (var weapon in Utilities.FindAllEntitiesByDesignerName<CCSWeaponBaseGun>("weapon_").Where(w => w != null && w.IsValid))
+                {
+                    if (weapon.OwnerEntity.Value == null)
+                    {
+                        if (RemoveDropWeaponTimer.ContainsKey(weapon))
+                        {
+                            if (RemoveDropWeaponTimer[weapon] > 0) RemoveDropWeaponTimer[weapon] -= 0.5f; // Decrease the timer
+                            else // If the timer is 0, remove the weapon
+                            {
+                                RemoveDropWeaponTimer.Remove(weapon); // Remove the weapon from the list
+                                weapon.Remove(); // Remove the weapon entity
+                            }
+                        }
+                        else // If the weapon is not in the list
+                        {
+                            if (Config.RemoveDropWeaponAfterDeath > 0) RemoveDropWeaponTimer[weapon] = Config.RemoveDropWeaponAfterDeath; // Add the weapon to the list with the removal time
+                            else weapon.Remove(); // Remove the weapon entity if the config is set to 0 or less
+                        }
+                    }
+                    else // If the weapon is carried by a player
+                    {
+                        if (RemoveDropWeaponTimer.ContainsKey(weapon)) RemoveDropWeaponTimer.Remove(weapon); // Remove the weapon from the list
+                    }
+                }
+            }, TimerFlags.REPEAT);
+
+            return HookResult.Continue;
+        });
+        RegisterEventHandler<EventPlayerSpawn>((@event, @info) =>
+        {
+            var player = @event.Userid;
+            if (player == null || !player.IsValid) return HookResult.Continue;
+
+            if (!PlayerStatuses.ContainsKey(player))
+            {
+                PlayerStatuses[player] = new PlayerStatus();
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) SetName(player, PlayerStatuses[player].DefaultName); // Reset the player name to default if it was changed
+            }
+            
+            if (PlayersRedeployTimer.ContainsKey(player))
+            {
+                PlayersRedeployTimer[player].Item1.Kill(); // Stop the timer
+                PlayersRedeployTimer.Remove(player); // Remove the player from the timer list
+            }
+            if (!player.IsBot && !player.IsHLTV && !PlayerSeeableGlow.ContainsKey(player)) // If the player is not a bot or HLTV and does not have a seeable glow list, add it
+            {
+                PlayerSeeableGlow.Add(player, new List<PlayerGlow>());
+            }
+            player.ExecuteClientCommandFromServer("mp_maxmoney 0"); // Set max money to 0
+            RemoveAllGlowOfPlayer(player);
+            if (DeadPlayersPosition.ContainsKey(player))
+            {
+                DeadPlayersPosition.Remove(player); // Remove from dead players list after respawn
+            }
+            if (ThirdPerson.ContainsKey(player)) // If the player is already in third-person mode, reset their camera to first-person
+            {
+                ThirdPerson.Remove(player);
+                player!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
+                Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+            }
+            // Apply class with slight delay to ensure player is fully spawned
+            AddTimer(0.1f, () =>
+            {
+                if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value!.LifeState != (byte)LifeState_t.LIFE_ALIVE) return; // Check if the player is connected and in a valid team
+                if (!PlayerStatuses.ContainsKey(player))PlayerStatuses[player] = new PlayerStatus();
+                ApplyPlayerClass(player);
+                var squad = AddPlayerToSquad(player, player.TeamNum);
+                if (squad != null) ShowSquadInfo(player);
+                if (PlayerStatuses.ContainsKey(player))
+                {
+                    PlayerStatuses[player].ClassType = GetPlayerClassType(player);
+                    PlayerStatuses[player].Squad = squad;
+                }
+            });
+            // Set ThirdPerson mode if enabled and player is not a bot
+            if (Config.AllowThirdPerson && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
+
+            return HookResult.Continue;
+        });
+        RegisterEventHandler<EventPlayerHurt>((@event, @info) =>
+        {
+            var player = @event.Userid;
+            var attacker = @event.Attacker;
+            if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
+            if (attacker == null || !attacker.IsValid || attacker.Pawn.Value == null) return HookResult.Continue;
+
+            if(player.TeamNum == attacker.TeamNum) return HookResult.Continue; // Ignore team damage
+
+            if (PlayerStatuses.ContainsKey(player))
+            {
+                PlayerStatuses[player].Status = PlayerStatusType.Combat;
+                PlayerStatuses[player].LastCombatTime = Server.CurrentTime;
+            }
+
+            return HookResult.Continue;
+        });
+        RegisterEventHandler<EventPlayerDeath>((@event, @info) =>
+        {
+            var player = @event.Userid;
+            var weapon = @event.Weapon;
+            var attacker = @event.Attacker;
+            if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
+
+            if (PlayerStatuses.ContainsKey(player)) PlayerStatuses[player].Status = PlayerStatusType.Injured;
+            UpdateTicketCount(player.TeamNum); // Decrease ticket count by 1 if valid
+            DeadPlayersPosition[player] = (new Vector(player.Pawn.Value.AbsOrigin!.X, player.Pawn.Value.AbsOrigin!.Y, player.Pawn.Value.AbsOrigin!.Z + 10f), CreateNewQAngle(player.PlayerPawn.Value.AbsRotation!)); // Store the player's position and angle
+            SetPlayerReviveEntry(player); // Set the player revive entry
+            SetGlowOnPlayerWhoRequestingMedic(player);
+            AddTimer(0.5f, () => RequestRevive(player)); // Auto Request Revive
+
+            // Show kill info in center of the screen
+            if (Config.ShowKillInfoInCenter && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+            {
+                var PlayerName = player.PlayerName;
+                if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
+                var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
+                if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
+                else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
+                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+            }
+            // Play kill sound to the attacker
+            if (Config.PlayKillSounds && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+            {
+                attacker.EmitSound(@event.Headshot == true ? "CTF.BF.Headshot" : "CTF.BF.Kill", new RecipientFilter { attacker }, Config.SoundsVolume);
+            }
+
+            // Check for low tickets and play sound to all players
+            if (Config.PlayMatchEndingSound && MatchStatus.IsLowTicketsSoundPlaying == false && GetRemainingTeamTicketsPercentage(player.TeamNum) <= 5)
+            {
+                var random = _random.Next(1, 6); // Random number between 1 and 5
+                PlayerLowTicketsSound(random);
+            }
+            
+            if(MatchStatus.TerroristTickets <= 0 || MatchStatus.CounterTerroristTickets <= 0) // If any team tickets are 0, end the match
+            {
+                EndMatch();
+            }
+            
+            if (!player.IsBot) // if player is not a bot, start the redeploy process
+            {
+                DeadPlayersTimer[player] = (AddTimer(0.5f, () => // this delay to make sure player is started spectating other player, otherwise player.Pawn.Value!.ObserverServices will give null exception error
+                {
+                    if (player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.Pawn.Value!.ObserverServices != null)
+                    {
+                        player.Pawn.Value!.ObserverServices.ForcedObserverMode = false; // Disable forced observer mode
+                        player.Pawn.Value!.ObserverServices.ObserverMode = (byte)ObserverMode_t.OBS_MODE_NONE; // Set ObserverMode to None
+                        player.Pawn.Value!.ObserverServices.ObserverTarget.Raw = uint.MaxValue; // Clear ObserverTarget
+                        player.Pawn.Value!.ObserverServices.Pawn.Value.Teleport(DeadPlayersPosition[player].Item1, DeadPlayersPosition[player].Item2); // Teleport the player camera to their death position
+                        DeadPlayersTimer[player].Item1.Kill(); // Stop the timer
+                        DeadPlayersTimer.Remove(player); // Remove the player from the dead players timer list
+                        GetReviveOrRespawnMenu(player); // Show revive or respawn menu
+                        return;
+                    }
+                    if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
+                    {
+                        DeadPlayersPosition.Remove(player!); // Remove the player from dead players position list
+                        if (DeadPlayersTimer.ContainsKey(player!)) // Check if the player is in the dead players timer list
+                        {
+                            DeadPlayersTimer[player!].Item1.Kill(); // Stop the timer
+                            DeadPlayersTimer.Remove(player!); // Remove the player from the dead players timer list
+                        }
+                        return;
+                    }
+                }, TimerFlags.REPEAT), 0);
+            }
+            else // If the player is a bot, redeploy them after a delay
+            {
+                DeployBot(player);
+            }
+            return HookResult.Continue;
+        });
+
+        // Team Switch Control
+        AddCommandListener("jointeam", (player, commandInfo) =>
+        {
+            // 'commandInfo.ArgByIndex(1)' returns the team num which players is trying to join
+            // 0 = AutoSelect | 1 = Spectator | 2 = Terrorist | 3 = C-Terrorist
+            if (player != null && player.IsValid && commandInfo.ArgByIndex(1) != "0") // Checking Player is Vaild and he should not selecting 'AutoSelect'
+            {
+                if (commandInfo.ArgByIndex(1) == "1") return HookResult.Continue; // If anyone wants to join to Spectator then he can freely join it.
+                if (commandInfo.ArgByIndex(1) == "2")
+                {
+                    if (player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) AddTimer(0.5f, player.Respawn);
+                }
+                if (commandInfo.ArgByIndex(1) == "3")
+                {
+                    if (player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) AddTimer(0.5f, player.Respawn);
+                }
+                return HookResult.Continue;	// Continue to the team he select
+            }
+            return HookResult.Handled;	// Do nothing, don't select any team
+        });
+        RegisterEventHandler<EventPlayerDisconnect>((@event, @info) =>
+        {
+            var player = @event.Userid;
+            if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
+
+            CleanPlayerStuff(player);
+
+            return HookResult.Continue;
+        });
+    }
+    public override void Unload(bool hotReload)
+    {
+        base.Unload(hotReload);
+
+        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected))
+        {
+            CleanPlayerStuff(player);
+        }
+
+        // Clear all data
+        ClearStuff();
+    }
+    private void ClearStuff()
+    {
+        AvailableRevives.Clear();
+        ThirdPerson.Clear();
+        Flagpoles?.Clear();
+        FlagPositions.Clear();
+        CenterMessageLines.Clear();
+        DeadPlayersPosition.Clear();
+        DeadPlayersTimer.Clear();
+        PlayerWeaponZoomed.Clear();
+        PlayerWeaponZoomedCount.Clear();
+        PlayerSquads.Clear();
+        PlayerStatuses.Clear();
+        PlayerDeployPositions.Clear();
+        PlayerSeeableGlow.Clear();
+        RemoveDropWeaponTimer.Clear();
+        if (FlagTimer != null) FlagTimer?.Kill();
+        if (UpdatePlayerStatesTimer != null) // Check if the player is in the timer list
+        {
+            UpdatePlayerStatesTimer.Kill(); // Stop the timer
+            UpdatePlayerStatesTimer = null; // Remove the player from the timer list
+        }
+        if (PlayersRedeployTimer != null) // Check if the player is in the timer list
+        {
+            foreach (var timer in PlayersRedeployTimer.Values)
+            {
+                timer.Item1.Kill(); // Stop the timer
+            }
+            PlayersRedeployTimer.Clear(); // Clear the dictionary
+        }
+    }
+    private void CleanPlayerStuff(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid) return;
+
+        // Reset the player's camera if they are in third-person mode
+        if (ThirdPerson.ContainsKey(player))
+        {
+            if (player.IsValid && player.PlayerPawn?.Value?.CameraServices != null)
+            {
+                player.PlayerPawn.Value.CameraServices.ViewEntity.Raw = uint.MaxValue;
+                Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
+            }
+
+            // Remove and dispose the third person camera prop
+            if (ThirdPerson[player] != null && ThirdPerson[player].IsValid)
+            {
+                ThirdPerson[player].Remove();
+            }
+            ThirdPerson.Remove(player);
+        }
+
+        // Clean up all player-related dictionaries
+        if (PlayerStatuses.ContainsKey(player))
+            PlayerStatuses.Remove(player);
+
+        if (PlayerWeaponZoomed.ContainsKey(player))
+            PlayerWeaponZoomed.Remove(player);
+
+        if (PlayerWeaponZoomedCount.ContainsKey(player))
+            PlayerWeaponZoomedCount.Remove(player);
+
+        if (DeadPlayersPosition.ContainsKey(player))
+            DeadPlayersPosition.Remove(player);
+
+        if (DeadPlayersTimer.ContainsKey(player))
+        {
+            DeadPlayersTimer[player].Item1.Kill(); // Stop the timer
+            DeadPlayersTimer.Remove(player);
+        }
+
+        if (PlayersRedeployTimer.ContainsKey(player))
+        {
+            PlayersRedeployTimer[player].Item1.Kill(); // Stop the timer
+            PlayersRedeployTimer.Remove(player);
+        }
+
+        if (PlayerSeeableGlow.ContainsKey(player))
+        {
+            // Clean up glow entities before removing
+            RemoveAllGlowOfPlayer(player);
+            PlayerSeeableGlow.Remove(player);
+        }
+
+        if (PlayerDeployPositions.ContainsKey(player))
+            PlayerDeployPositions.Remove(player);
+
+        // Clean up squad data
+        RemovePlayerFromSquad(player);
+
+
+        // Clean up revive data
+        var playerReviveEntries = AvailableRevives.Where(r => r.player == player || r.reviver == player).ToList();
+        foreach (var reviveEntry in playerReviveEntries)
+        {
+            if (reviveEntry.beaconBeams != null)
+            {
+                foreach (var beam in reviveEntry.beaconBeams)
+                {
+                    if (beam != null && beam.IsValid)
+                        beam.Remove();
+                }
+            }
+            AvailableRevives.Remove(reviveEntry);
+        }
+    }
+}
