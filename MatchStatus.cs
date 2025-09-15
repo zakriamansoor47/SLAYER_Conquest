@@ -71,7 +71,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var TempEntity = Utilities.CreateEntityByName<CBaseEntity>("prop_static");
         if (TempEntity == null || !TempEntity.IsValid) return;
 
-        
         // Play the sound to all players
         var recipients = new RecipientFilter();
         foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV))
