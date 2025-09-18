@@ -68,7 +68,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         settingsMenu.AddOption($"{Localizer["Menu.ChangeMatchEndCameraPosition"]}", (p, option) =>
         {
-            var position = new Vector(p.PlayerPawn.Value.AbsOrigin.X, p.PlayerPawn.Value.AbsOrigin.Y, p.PlayerPawn.Value.AbsOrigin.Z+64); // player eye position
+            var position = new Vector(p.PlayerPawn.Value.AbsOrigin.X, p.PlayerPawn.Value.AbsOrigin.Y, p.PlayerPawn.Value.AbsOrigin.Z + 64); // player eye position
             p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchEndCameraPositionChanged", $"({MatchEndCameraPosition.Item1} | {MatchEndCameraPosition.Item2})", $"({position} | {p.PlayerPawn.Value.AbsRotation!})"]}");
             MatchEndCameraPosition = (position, p.PlayerPawn.Value.AbsRotation!); // Set the match end camera position to the player's current position
             fileHandler.SaveFlagPositions();
@@ -137,7 +137,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                         // Get the existing FlagData and update its position
                         var existingFlagData = FlagPositions[flagName];
                         existingFlagData.Position = ConvertVectorToString(position);
-                        
+
                         // Put the updated FlagData back in the dictionary
                         FlagPositions[flagName] = existingFlagData;
                     }
@@ -211,7 +211,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         rotationMenu.AddOption($"<font color='aqua'>Rotate +1°</font>", (p, option) =>
         {
             float newRotation = (currentRotation + 1f) % 360f;
-            if(Name == "Flag")UpdateFlagRotation(flag, newRotation);
+            if (Name == "Flag") UpdateFlagRotation(flag, newRotation);
             else UpdateSquareRotation(flag, newRotation);
             currentRotation = Name == "Flag" ? flag.Rotation : flag.CaptureSquare.Rotation;
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{Name} rotated to: {ChatColors.Yellow}{newRotation:F0}°");
@@ -223,7 +223,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             float newRotation = currentRotation - 1f;
             if (newRotation < 0) newRotation += 360f;
-            if(Name == "Flag")UpdateFlagRotation(flag, newRotation);
+            if (Name == "Flag") UpdateFlagRotation(flag, newRotation);
             else UpdateSquareRotation(flag, newRotation);
             currentRotation = Name == "Flag" ? flag.Rotation : flag.CaptureSquare.Rotation;
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{Name} rotated to: {ChatColors.Yellow}{newRotation:F0}°");
@@ -234,7 +234,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         rotationMenu.AddOption($"<font color='lime'>Rotate +5°</font>", (p, option) =>
         {
             float newRotation = (currentRotation + 5f) % 360f;
-            if(Name == "Flag")UpdateFlagRotation(flag, newRotation);
+            if (Name == "Flag") UpdateFlagRotation(flag, newRotation);
             else UpdateSquareRotation(flag, newRotation);
             currentRotation = Name == "Flag" ? flag.Rotation : flag.CaptureSquare.Rotation;
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{Name} rotated to: {ChatColors.Yellow}{newRotation:F0}°");
@@ -246,7 +246,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             float newRotation = currentRotation - 5f;
             if (newRotation < 0) newRotation += 360f;
-            if(Name == "Flag")UpdateFlagRotation(flag, newRotation);
+            if (Name == "Flag") UpdateFlagRotation(flag, newRotation);
             else UpdateSquareRotation(flag, newRotation);
             currentRotation = Name == "Flag" ? flag.Rotation : flag.CaptureSquare.Rotation;
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{Name} rotated to: {ChatColors.Yellow}{newRotation:F0}°");
@@ -347,7 +347,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (flag == null && !isEditMode) return;
 
         string[] directions = { "Expand Front Side", "Contract Front Side", "Expand Back Side", "Contract Back Side", "Expand Right Side", "Contract Right Side", "Expand Left Side", "Contract Left Side" };
-        string[] colors = { "lime", "orange", "cyan", "RoyalBlue"};
+        string[] colors = { "lime", "orange", "cyan", "RoyalBlue" };
 
 
         var selected_unit = 5;
@@ -355,7 +355,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         List<LinkedListNode<IT3Option>> movementOptions = new List<LinkedListNode<IT3Option>>();
         adjustMenu.AddSliderOption($"<font color='yellow'>Adjustment Units: </font>", units, units[1], 4, (p, option, value) =>
         {
-            foreach(var op in movementOptions.Where(o => o != null))
+            foreach (var op in movementOptions.Where(o => o != null))
             {
                 op.Value.OptionDisplay = op.Value.OptionDisplay.Replace($"({selected_unit})", $"({units[value]})");
             }
@@ -371,7 +371,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             bool isExpand = direction.Contains("Expand");
             string side = direction.Contains("Front") ? "front" : direction.Contains("Back") ? "back" : direction.Contains("Left") ? "left" : direction.Contains("Right") ? "right" : "";
             if (isExpand) colorcounter++;
-            
+
             movementOptions.Add(adjustMenu.AddOption($"<font color='{(isExpand ? colors[colorcounter] : "red")}'>{direction} ({selected_unit})</font>", (p, option) =>
             {
                 AdjustSquareSide(flag, side, isExpand ? -selected_unit : selected_unit);
@@ -409,7 +409,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         List<LinkedListNode<IT3Option>> movementOptions = new List<LinkedListNode<IT3Option>>();
         adjustMenu.AddSliderOption($"<font color='yellow'>Adjustment Units: </font>", units, units[1], 4, (p, option, value) =>
         {
-            foreach(var op in movementOptions.Where(o => o != null))
+            foreach (var op in movementOptions.Where(o => o != null))
             {
                 op.Value.OptionDisplay = op.Value.OptionDisplay.Replace($"(±{selected_unit})", $"(±{units[value]})");
             }
@@ -1062,5 +1062,107 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         manager.OpenMainMenu(player, menu);
     }
+
+    private void MatchEndStatusMenu(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        string Winner = MatchStatus.Status == MatchStatusType.TerroristWin ? "Terrorists" : "Counter-Terrorists";
+        var menu = manager.CreateMenu($"<font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner} Win</font>", false, false, true, false, false);
+
+        menu.AddOption($"<font color='red'>Match Stats</font>", (p, option) =>
+        {
+            ShowMatchStats(p, menu);
+        });
+        menu.AddOption($"<font color='lime'>Best Squad Stats</font>", (p, option) =>
+        {
+            ShowBestSquadStats(p, menu);
+        });
+        menu.AddOption($"<font color='gold'>Your Squad Stats</font>", (p, option) =>
+        {
+            ShowPlayerSquadStats(p, menu);
+        });
+
+        manager.OpenMainMenu(player, menu);
+    }
+    private void ShowMatchStats(CCSPlayerController player, IT3Menu parentMenu)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        var menu = manager.CreateMenu($"<font color='gold'>Match Statistics</font>", false, false, true, true, false);
+        menu.ParentMenu = parentMenu;
+
+        string Winner = MatchStatus.Status == MatchStatusType.TerroristWin ? "Terrorists" : "Counter-Terrorists";
+        var matchDuration = TimeSpan.FromSeconds(MatchStatus.MatchEndTime - MatchStatus.MatchStartTime);
+        string durationStr = $"{(int)matchDuration.TotalMinutes:D2}:{matchDuration.Seconds:D2}";
+        menu.AddOption($"<font class='fontSize-m' color='red'>Winner:</font> <font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Match Duration: </font><font class='fontSize-m' color='lime'>{durationStr}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Remaining Tickets: </font><font class='fontSize-m' color='lime'>{(MatchStatus.Status == MatchStatusType.TerroristWin ? MatchStatus.TerroristTickets : MatchStatus.CounterTerroristTickets)}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Flags Captured: </font><font class='fontSize-m' color='lime'>{(MatchStatus.Status == MatchStatusType.TerroristWin ? GetFlagsCapturedBy(CsTeam.Terrorist) : GetFlagsCapturedBy(CsTeam.CounterTerrorist))}</font>", (p, option) => { });
+
+        manager.OpenSubMenu(player, menu);
+    }
+    private void ShowBestSquadStats(CCSPlayerController player, IT3Menu parentMenu)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        var bestSquad = MatchStatus.BestSquad;
+        if (bestSquad == null)
+        {
+            manager.CloseMenu(player);
+            manager.OpenMainMenu(player, parentMenu);
+        }
+
+        var menu = manager.CreateMenu($"<font color='gold'>Best Squad:</font> <font color='lime'>{bestSquad.SquadName}</font>", false, false, true, true, false);
+        menu.ParentMenu = parentMenu;
+
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Kills: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalKills}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Deaths: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalDeaths}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Assists: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalAssists}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Revives: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalRevives}</font>", (p, option) => { });
+        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, null);
+
+        manager.OpenSubMenu(player, menu);
+
+        // Now change the PlayerLookingAtSquadPoseEntities to best Squad
+        var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
+        UpdateWorldText(worldtext, $"Best Squad:\n{bestSquad.SquadName}", bestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+        MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (bestSquad, worldtext);
+    }
+    private void ShowPlayerSquadStats(CCSPlayerController player, IT3Menu parentMenu)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        var playerSquad = GetPlayerSquad(player);
+        var menu = manager.CreateMenu($"<font color='gold'>Your Squad:</font> <font color='lime'>{playerSquad.SquadName}</font>", false, false, true, true, false);
+        menu.ParentMenu = parentMenu;
+
+
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Kills: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalKills}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Deaths: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalDeaths}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Assists: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalAssists}</font>", (p, option) => { });
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Revives: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalRevives}</font>", (p, option) => { });
+        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, null);
+
+        manager.OpenSubMenu(player, menu);
+
+        // Now change the PlayerLookingAtSquadPoseEntities to his squad
+        var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
+        UpdateWorldText(worldtext, $"Your Squad:\n{playerSquad.SquadName}", playerSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+        MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (playerSquad, worldtext);
+    }
+    
     
 }

@@ -166,6 +166,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return _cameraProp;
     }
+    private void RemoveThirdPerson(CCSPlayerController player)
+    {
+        if(player != null && player.IsValid && ThirdPerson.ContainsKey(player))
+        {
+            if (player.IsValid && player.PlayerPawn?.Value?.CameraServices != null)
+            {
+                player.PlayerPawn.Value.CameraServices.ViewEntity.Raw = uint.MaxValue;
+                Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
+            }
+            
+            // Remove and dispose the third person camera prop
+            if (ThirdPerson[player] != null && ThirdPerson[player].IsValid)
+            {
+                ThirdPerson[player].Remove();
+            }
+            ThirdPerson.Remove(player);
+        }
+    }
     // Update the angle step by step towards the target angle
     public QAngle MoveTowardsAngle(QAngle angle, QAngle targetAngle, float baseStepSize)
     {

@@ -12,6 +12,7 @@ using System.Text.Json.Serialization;
 using CS2TraceRay.Class;
 using CS2TraceRay.Enum;
 using CS2TraceRay.Struct;
+using CounterStrikeSharp.API.Modules.Timers;
 
 // Used these to remove compile warnings
 #pragma warning disable CS8600
@@ -237,6 +238,67 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return model;
     }
+    public CDynamicProp[] CreatePlayerEntity(Vector Position, QAngle Rotation, string modelpath = "", string animationModelPath = "", string animation = "tools_preview", bool PlayAnimationsInLoop = true, bool HaveCollision = true, bool TakesDamage = false, int Health = 100)
+    {
+        var model = Utilities.CreateEntityByName<CDynamicProp>("prop_dynamic");
+        if (model == null)
+            return null;
+        CDynamicProp[] models = new CDynamicProp[2];
+        model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= unchecked((uint)~(1 << 2));
+        if(!string.IsNullOrWhiteSpace(modelpath))model.SetModel(modelpath);
+        else model.SetModel("characters/models/tm_professional/tm_professional_varf4.vmdl");
+        model.UseAnimGraph = false;
+        if(HaveCollision)model.Collision.SolidType = SolidType_t.SOLID_VPHYSICS; // set collision type
+        if(TakesDamage)
+        {
+            model.MaxHealth = Health;
+            model.Health = Health;
+            model.TakesDamage = true;
+            model.TakeDamageFlags = TakeDamageFlags_t.DFLAG_ALWAYS_FIRE_DAMAGE_EVENTS;
+            Utilities.SetStateChanged(model, "CBaseEntity", "m_iHealth");
+            Utilities.SetStateChanged(model, "CBaseEntity", "m_iMaxHealth");
+        }
+        if (!string.IsNullOrWhiteSpace(animationModelPath) && !string.IsNullOrEmpty(animation)) // Custom Models
+        {
+            CDynamicProp? clone = Utilities.CreateEntityByName<CDynamicProp>("prop_dynamic");
+            clone.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= unchecked((uint)~(1 << 2));
+            clone.SetModel(animationModelPath); // set custom animation model
+            clone.UseAnimGraph = false;
+            clone.IdleAnim = animation; // play animation in loop
+            if (HaveCollision) clone.Collision.SolidType = SolidType_t.SOLID_VPHYSICS; // set collision type for clone
+            if (TakesDamage)
+            {
+                Server.NextFrame(() =>
+                {
+                    clone.MaxHealth = Health;
+                    clone.Health = Health;
+                    clone.TakesDamage = true;
+                    clone.TakeDamageFlags = TakeDamageFlags_t.DFLAG_ALWAYS_FIRE_DAMAGE_EVENTS;
+                    Utilities.SetStateChanged(clone, "CBaseEntity", "m_iHealth");
+                    Utilities.SetStateChanged(clone, "CBaseEntity", "m_iMaxHealth");
+                });
+            }
+            // hide clone
+            clone.Render = Color.FromArgb(0, 255, 255, 255);
+            Utilities.SetStateChanged(clone, "CBaseModelEntity", "m_clrRender");
+            model.AcceptInput("FollowEntity", clone, clone, "!activator"); // main entity follow clone
+            clone.IdleAnim = animation; // play animation
+            clone.DispatchSpawn();
+            clone.Teleport(Position, Rotation, Vector.Zero);
+            models[1] = clone;
+        }
+        else
+        {
+            model.IdleAnim = animation; // play animation
+            model.IdleAnimLoopMode = PlayAnimationsInLoop ? AnimLoopMode_t.ANIM_LOOP_MODE_LOOPING : AnimLoopMode_t.ANIM_LOOP_MODE_NOT_LOOPING; // play animation in loop
+
+        }
+        HookSingleEntityOutput(model, "OnAnimationDone", HookOnAnimationDone);
+        model.DispatchSpawn();
+        model.Teleport(Position, Rotation, Vector.Zero);
+        models[0] = model;
+        return models;
+    }
     public CDynamicProp CreateStaticEntity(Vector Position, string modelName)
     {
         var model = Utilities.CreateEntityByName<CDynamicProp>("prop_dynamic");
@@ -250,6 +312,50 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         model.Teleport(Position, QAngle.Zero, Vector.Zero);
 
         return model;
+    }
+    public CPointWorldText CreateWorldText(string message, Vector position, QAngle rotation, int fontSize = 30, string hexColor = "#ffffffff", string fontName = "Arial Black", bool background = false)
+    {
+        if (string.IsNullOrWhiteSpace(message) || position == null || rotation == null) return null;
+        var entity = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext");
+        if (entity == null) return null;
+
+        entity.MessageText = message;
+        entity.Enabled = true;
+        entity.FontSize = fontSize;
+        entity.FontName = fontName;
+        entity.Color = ColorTranslator.FromHtml(hexColor);
+        entity.Fullbright = true;
+        entity.WorldUnitsPerPx = 0.1f;
+        entity.BackgroundWorldToUV = 0.01f;
+        entity.DepthOffset = 0.1f;
+        entity.JustifyHorizontal = PointWorldTextJustifyHorizontal_t.POINT_WORLD_TEXT_JUSTIFY_HORIZONTAL_CENTER;
+        entity.JustifyVertical = PointWorldTextJustifyVertical_t.POINT_WORLD_TEXT_JUSTIFY_VERTICAL_CENTER;
+        entity.ReorientMode = PointWorldTextReorientMode_t.POINT_WORLD_TEXT_REORIENT_NONE;
+        entity.RenderMode = RenderMode_t.kRenderNormal;
+
+        if (background)
+        {
+            entity.DrawBackground = true;
+            entity.BackgroundBorderHeight = 1f;
+            entity.BackgroundBorderWidth = 1f;
+        }
+
+        entity.Teleport(position, rotation);
+        entity.DispatchSpawn();
+
+        return entity;
+    }
+    public void UpdateWorldText(CPointWorldText entity, string message, string color = "#ffffffff")
+    {
+        if (entity == null || !entity.IsValid || string.IsNullOrWhiteSpace(message)) return;
+
+        entity.MessageText = message;
+        Utilities.SetStateChanged(entity, "CPointWorldText", "m_messageText");
+        if (!string.IsNullOrWhiteSpace(color))
+        {
+            entity.Color = ColorTranslator.FromHtml(color);
+            Utilities.SetStateChanged(entity, "CPointWorldText", "m_Color");
+        }
     }
     public List<CDynamicProp> SetGlowOnPlayer(CCSPlayerController player, Color color, int GlowRangeMin = 1, int GlowRangeMax = 700, int GlowTeam = -1)
     {
@@ -857,6 +963,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         Vector direction= new((float)Math.Cos(totalYaw) * distance, (float)Math.Sin(totalYaw) * distance, 0);
         return currentPosition + direction;
     }
+
+    
 
     private List<CBeam> DrawBeaconCircle(Vector? position, float circle_radius, int TotalBeams, Color color, float beamWidth = 2f)
     {

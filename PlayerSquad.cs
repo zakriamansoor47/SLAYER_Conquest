@@ -33,9 +33,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public int Id { get; set; } = 0;
         public int TeamNum { get; set; } = 0;
         public string SquadName { get; set; } = "Alpha";
-        public int TotaltRevives { get; set; } = 0;
+        public int TotalRevives { get; set; } = 0;
         public int TotalKills { get; set; } = 0;
+        public int TotalDeaths { get; set; } = 0;
         public int TotalAssists { get; set; } = 0;
+        public int TotalFlagCaptures { get; set; } = 0;
         public Dictionary<CCSPlayerController, PlayerClassType> Members { get; set; } = new Dictionary<CCSPlayerController, PlayerClassType>();
     }
     private void SetPlayerNameAndClan(CCSPlayerController player)
@@ -199,7 +201,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var squadsToConsider = teamNum == 0 ? PlayerSquads : PlayerSquads.Where(s => s.TeamNum == teamNum);
         
-        return squadsToConsider.OrderByDescending(s => s.TotalKills + s.TotaltRevives + s.TotalAssists).FirstOrDefault();
+        return squadsToConsider.OrderByDescending(s => s.TotalKills + s.TotalRevives + s.TotalAssists).FirstOrDefault();
     }
     public bool IsPlayerSquadmate(CCSPlayerController player, CCSPlayerController player2)
     {

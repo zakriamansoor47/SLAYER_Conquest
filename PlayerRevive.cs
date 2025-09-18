@@ -146,6 +146,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 {
                     reviveEntry.beaconBeams?.ForEach(beam => { if (beam != null && beam.IsValid) beam.Remove(); });
                     reviveEntry.beaconBeams = null;
+                    if (reviveEntry.reviver != null) StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
+                    UnFreezePlayer(reviveEntry.reviver);
                     RemovePlayerReviveEntry(reviveEntry.player);
                 }
                 else // Reviving is still valid
@@ -182,6 +184,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (reviveEntry == null) return;
 
         if (reviveEntry.reviver != null) StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
+        UnFreezePlayer(reviveEntry.reviver);
 
         // Reset Reviving Status
         reviveEntry.reviver = null;
@@ -209,7 +212,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
             var squad = GetPlayerSquad(reviveEntry.reviver);
-            if (squad != null) squad.TotaltRevives += 1; // Increase squad total revives by 1
+            if (squad != null) squad.TotalRevives += 1; // Increase squad total revives by 1
+            if (PlayerStatuses.ContainsKey(reviveEntry.reviver)) PlayerStatuses[reviveEntry.reviver].TotalRevives += 1; // Increase total revives by 1
             UnFreezePlayer(reviveEntry.reviver);
         }
 

@@ -12,6 +12,7 @@
     "Chat.DeployCameraPositionChanged":     "{Gold}Deploy camera position changed from {lime}{0} {Gold}to {Green}{1}.",
     "Chat.MatchEndCameraPositionChanged":   "{Gold}Match end camera position changed from {lime}{0} {Gold}to {Green}{1}.",
     "Chat.GettingRevived":                  "{lime}You are getting revived by {gold}{0}",
+    "Chat.MatchEndMapChangeDelay":          "{gold}Map will change to {lime}{0} {gold}in {lime}{1} seconds.",
     "Menu.CTFSettings.Title":               "<font color='gold'>Capture The Flag Settings</font>",
     "Menu.CreateFlag.Title":                "<font color='lime'>Create Flag</font>",
     "Menu.EditFlag.Title":                  "<font color='blue'>Edit Flag</font>",

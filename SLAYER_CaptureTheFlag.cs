@@ -30,148 +30,6 @@ using CounterStrikeSharp.API.Modules.Entities;
 
 namespace SLAYER_CaptureTheFlag;
 
-public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
-{
-    [JsonPropertyName("FlagCaptureTime")] public float FlagCaptureTime { get; set; } = 10;
-    [JsonPropertyName("DefaultPlayerClass")] public string DefaultPlayerClass { get; set; } = "Assault";
-    [JsonPropertyName("TerroristTeamColor")] public string TerroristTeamColor { get; set; } = "orange";
-    [JsonPropertyName("CTerroristTeamColor")] public string CTerroristTeamColor { get; set; } = "royalblue"; // royal blue
-    [JsonPropertyName("FocusTheDeployCameraOnDeployPosition")] public bool FocusTheDeployCameraOnDeployPosition { get; set; } = false;
-    [JsonPropertyName("NoBlock")] public bool NoBlock { get; set; } = false;
-    [JsonPropertyName("AllowClassChangeWhileAlive")] public bool AllowClassChangeWhileAlive { get; set; } = false;
-    [JsonPropertyName("ShowPlayerClassInPlayerName")] public bool ShowPlayerClassInPlayerName { get; set; } = true;
-    [JsonPropertyName("ShowPlayerSquadNameInPlayerClan")] public bool ShowPlayerSquadNameInPlayerClan { get; set; } = true;
-    [JsonPropertyName("SetGlowOnSquadMembers")] public bool SetGlowOnSquadMembers { get; set; } = true;
-    [JsonPropertyName("ShowKillInfoInCenter")] public bool ShowKillInfoInCenter { get; set; } = true;
-    [JsonPropertyName("PlayKillSounds")] public bool PlayKillSounds { get; set; } = true;
-    [JsonPropertyName("PlayMatchEndingSound")] public bool PlayMatchEndingSound { get; set; } = true;
-    [JsonPropertyName("PlayVictorySound")] public bool PlayVictorySound { get; set; } = true;
-    [JsonPropertyName("PlayDefeatSound")] public bool PlayDefeatSound { get; set; } = true;
-    [JsonPropertyName("SoundsVolume")] public float SoundsVolume { get; set; } = 1f;
-    [JsonPropertyName("ShowKillInfoTime")] public float ShowKillInfoTime { get; set; } = 3f;
-    [JsonPropertyName("TerroristTeamTickets")] public int TerroristTeamTickets { get; set; } = 800;
-    [JsonPropertyName("CTerroristTeamTickets")] public int CTerroristTeamTickets { get; set; } = 800;
-    [JsonPropertyName("SquadmateReviveTime")] public float SquadmateReviveTime { get; set; } = 4f;
-    [JsonPropertyName("CombatTime")] public float CombatTime { get; set; } = 5f;
-    [JsonPropertyName("MedicReviveTime")] public float MedicReviveTime { get; set; } = 1.5f;
-    [JsonPropertyName("SquadmateReviveSpawnHealth")] public int SquadmateReviveSpawnHealth { get; set; } = 50;
-    [JsonPropertyName("MedicReviveSpawnHealth")] public int MedicReviveSpawnHealth { get; set; } = 100;
-    [JsonPropertyName("AbilityCooldownTime")] public int AbilityCooldownTime { get; set; } = 30;
-    [JsonPropertyName("PlayerSpawnProtectionTime")] public float PlayerSpawnProtectionTime { get; set; } = 5f;
-    [JsonPropertyName("PlayerGetRevivedTimer")] public float PlayerGetRevivedTimer { get; set; } = 30f;
-    [JsonPropertyName("PlayerRedeployDelay")] public float PlayerRedeployDelay { get; set; } = 5f;
-    [JsonPropertyName("PlayerBotRedeployDelay")] public float PlayerBotRedeployDelay { get; set; } = 10f;
-    [JsonPropertyName("RemoveDropWeaponAfterDeath")] public float RemoveDropWeaponAfterDeath { get; set; } = 15f;
-    [JsonPropertyName("AllowThirdPerson")] public bool AllowThirdPerson { get; set; } = true;
-    [JsonPropertyName("PlayerTPCameraXYOffset")] public float PlayerTPCameraXYOffset { get; set; } = -30; // prop camera XY offset
-    [JsonPropertyName("PlayerTPCameraZOffset")] public float PlayerTPCameraZOffset { get; set; } = 75; // Prop camera Z offset
-    [JsonPropertyName("PlayerTPCameraRightOffset")] public float PlayerTPCameraRightOffset { get; set; } = -10; // Prop camera right offset
-    [JsonPropertyName("SquadNames")]
-    public List<string> SquadNames { get; set; } = new List<string>
-    {
-        "Alpha",
-        "Bravo",
-        "Charlie",
-        "Delta",
-        "Phantom",
-        "Shadow",
-        "Viper",
-        "Eagle",
-        "Omega",
-        "Reaper",
-        "Nova",
-        "Titan",
-        "Ghost",
-        "Falcon",
-        "Hunter",
-        "Blaze",
-        "Rogue"
-    };
-
-    // Class weapon configurations
-    [JsonPropertyName("ClassWeapons")]
-    public Dictionary<string, ClassWeaponConfig> ClassWeapons { get; set; } = new Dictionary<string, ClassWeaponConfig>
-    {
-        ["Assault"] = new ClassWeaponConfig
-        {
-            PrimaryWeapons = new List<string> { "weapon_ak47", "weapon_m4a1", "weapon_m4a1_silencer", "weapon_aug", "weapon_sg556", "weapon_famas", "weapon_galilar" },
-            SecondaryWeapons = new List<string> { "weapon_usp_silencer", "weapon_deagle", "weapon_p250", "weapon_revolver", "weapon_fiveseven" },
-            Equipment = new List<string> { "weapon_hegrenade", "weapon_smokegrenade", "weapon_healthshot" }
-        },
-        ["Engineer"] = new ClassWeaponConfig
-        {
-            PrimaryWeapons = new List<string> { "weapon_m249", "weapon_negev", "weapon_nova", "weapon_xm1014", "weapon_sawedoff", "weapon_mag7" },
-            SecondaryWeapons = new List<string> { "weapon_glock", "weapon_tec9", "weapon_hkp2000", "weapon_p250", "weapon_elite", },
-            Equipment = new List<string> { "weapon_hegrenade", "weapon_incgrenade" }
-        },
-        ["Medic"] = new ClassWeaponConfig
-        {
-            PrimaryWeapons = new List<string> { "weapon_mp5sd", "weapon_mp7", "weapon_mp9", "weapon_bizon", "weapon_ump45", "weapon_mac10", "weapon_p90" },
-            SecondaryWeapons = new List<string> { "weapon_fiveseven", "weapon_hkp2000", "weapon_elite", "weapon_tec9", "weapon_cz75a" },
-            Equipment = new List<string> { "weapon_flashbang", "weapon_smokegrenade", "weapon_smokegrenade" }
-        },
-        ["Recon"] = new ClassWeaponConfig
-        {
-            PrimaryWeapons = new List<string> { "weapon_awp", "weapon_ssg08", "weapon_g3sg1", "weapon_scar20" },
-            SecondaryWeapons = new List<string> { "weapon_usp_silencer", "weapon_glock", "weapon_revolver", "weapon_fiveseven", "weapon_cz75a" },
-            Equipment = new List<string> { "weapon_decoy", "weapon_flashbang", "weapon_taser" }
-        }
-    };
-    
-    // Class attribute configurations
-    [JsonPropertyName("ClassAttributes")]
-    public Dictionary<string, ClassAttributeConfig> ClassAttributes { get; set; } = new Dictionary<string, ClassAttributeConfig>
-    {
-        ["Assault"] = new ClassAttributeConfig
-        {
-            Health = 100,
-            Armor = 100,
-            HasHelmet = true,
-            Speed = 1.0f,
-            Description = "Balanced combat specialist with extra grenades"
-        },
-        ["Engineer"] = new ClassAttributeConfig
-        {
-            Health = 100,
-            Armor = 150,
-            HasHelmet = true,
-            Speed = 0.9f,
-            Description = "Support specialist with extra ammo"
-        },
-        ["Medic"] = new ClassAttributeConfig
-        {
-            Health = 100,
-            Armor = 70,
-            HasHelmet = true,
-            Speed = 1.1f,
-            Description = "Support specialist with healing abilities"
-        },
-        ["Recon"] = new ClassAttributeConfig
-        {
-            Health = 100,
-            Armor = 80,
-            HasHelmet = false,
-            Speed = 0.95f,
-            Description = "Long-range specialist with sniper rifles"
-        }
-    };
-}
-// Add these classes to define the config structures
-public class ClassWeaponConfig
-{
-    [JsonPropertyName("PrimaryWeapons")] public List<string> PrimaryWeapons { get; set; } = new List<string>();
-    [JsonPropertyName("SecondaryWeapons")] public List<string> SecondaryWeapons { get; set; } = new List<string>();
-    [JsonPropertyName("Equipment")] public List<string> Equipment { get; set; } = new List<string>();
-}
-
-public class ClassAttributeConfig
-{
-    [JsonPropertyName("Health")] public int Health { get; set; } = 100;
-    [JsonPropertyName("Armor")] public int Armor { get; set; } = 0;
-    [JsonPropertyName("HasHelmet")] public bool HasHelmet { get; set; } = false;
-    [JsonPropertyName("Speed")] public float Speed { get; set; } = 1.0f;
-    [JsonPropertyName("Description")] public string Description { get; set; } = "";
-}
 public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
 {
     public override string ModuleName => "SLAYER_CaptureTheFlag";
@@ -293,6 +151,26 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
                     {
                         info.TransmitEntities.Remove(p.PlayerPawn.Value.Index);
+                    }
+                   
+                    if (MatchStatus.PlayerLookingAtSquadPoseEntities.ContainsKey(player))
+                    {
+                        var squad = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item1;
+                        // Hide all pose entities from this player except the ones from their own squad
+                        foreach (var otherSquad in MatchStatus.PoseEntities.Keys.Where(s => s != null && s != squad))
+                        {
+                            foreach (var poseEntity in MatchStatus.PoseEntities[otherSquad].Where(p => p != null))
+                            {
+                                if (poseEntity.PoseEntity != null && poseEntity.PoseEntity.IsValid)
+                                {
+                                    info.TransmitEntities.Remove(poseEntity.PoseEntity); // Remove the pose entity from transmission
+                                }
+                                if (poseEntity.NameTextEntity != null && poseEntity.NameTextEntity.IsValid)
+                                {
+                                    info.TransmitEntities.Remove(poseEntity.NameTextEntity); // Remove the name text entity from transmission
+                                }
+                            }
+                        }
                     }
                     continue;
                 }
@@ -460,6 +338,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var player = @event.Userid;
             if (player == null || !player.IsValid) return HookResult.Continue;
 
+            try
+            {
+                var manager = GetMenuManager();
+                if (manager != null) manager.CloseMenu(player); // Close any open menu for the player
+            }
+            catch { }
             SetPlayerScale(player, 1f); // Reset player scale to normal
             if (!PlayerStatuses.ContainsKey(player))
             {
@@ -469,7 +353,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 if (!string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) SetName(player, PlayerStatuses[player].DefaultName); // Reset the player name to default if it was changed
             }
-            
+
             if (PlayersRedeployTimer.ContainsKey(player))
             {
                 PlayersRedeployTimer[player].Item1.Kill(); // Stop the timer
@@ -507,7 +391,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             });
             // Set ThirdPerson mode if enabled and player is not a bot
             if (Config.AllowThirdPerson && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
-
+        
+            
             return HookResult.Continue;
         });
         RegisterEventHandler<EventPlayerHurt>((@event, @info) =>
@@ -537,33 +422,44 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
 
-            if (PlayerStatuses.ContainsKey(player)) PlayerStatuses[player].Status = PlayerStatusType.Injured;
+            // Update squads and player stats
+            if (PlayerStatuses.ContainsKey(player))
+            {
+                PlayerStatuses[player].Status = PlayerStatusType.Injured;
+                PlayerStatuses[player].TotalDeaths += 1;
+                var playerSquad = GetPlayerSquad(player);
+                if (playerSquad != null) playerSquad.TotalDeaths += 1; // Increase squad total deaths by 1
+            }
+            if (assister != null && assister.IsValid && assister.TeamNum != player.TeamNum)
+            {
+                if (PlayerStatuses.ContainsKey(assister)) PlayerStatuses[assister].TotalAssists += 1;
+                var assisterSquad = GetPlayerSquad(assister);
+                if (assisterSquad != null) assisterSquad.TotalAssists += 1; // Increase squad total assists by 1
+            }
+            if (attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+            {
+                if (PlayerStatuses.ContainsKey(attacker)) PlayerStatuses[attacker].TotalKills += 1;
+                var attackerSquad = GetPlayerSquad(attacker);
+                if (attackerSquad != null) attackerSquad.TotalKills += 1;
+            }
+
             UpdateTicketCount(player.TeamNum); // Decrease ticket count by 1 if valid
             DeadPlayersPosition[player] = (new Vector(player.Pawn.Value.AbsOrigin!.X, player.Pawn.Value.AbsOrigin!.Y, player.Pawn.Value.AbsOrigin!.Z + 10f), CreateNewQAngle(player.PlayerPawn.Value.AbsRotation!)); // Store the player's position and angle
             SetPlayerReviveEntry(player); // Set the player revive entry
             SetGlowOnPlayerWhoRequestingMedic(player);
             AddTimer(0.5f, () => RequestRevive(player)); // Auto Request Revive
 
-            // Update squads stats
-            if (assister != null && assister.IsValid)
-            {
-                var assisterSquad = GetPlayerSquad(assister);
-                if (assisterSquad != null) assisterSquad.TotalAssists += 1; // Increase squad total assists by 1
-            }
-            var attackerSquad = GetPlayerSquad(attacker);
-            if (attackerSquad != null) attackerSquad.TotalKills += 1; // Increase squad total kills by 1
-            
-
             // Show kill info in center of the screen
-                if (Config.ShowKillInfoInCenter && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
-                {
-                    var PlayerName = player.PlayerName;
-                    if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
-                    var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
-                    if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
-                    else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
-                    UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
-                }
+            if (Config.ShowKillInfoInCenter && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
+            {
+                var PlayerName = player.PlayerName;
+                if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
+                var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
+                if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
+                else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
+                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+            }
+
             // Play kill sound to the attacker
             if (Config.PlayKillSounds && attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
             {
@@ -652,6 +548,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected))
         {
+            // Reset the player's camera if they are in third-person mode
+            RemoveThirdPerson(player);
+            SetPlayerScale(player, 1f); // Reset player scale to normal
             CleanPlayerStuff(player);
         }
 
@@ -689,27 +588,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             PlayersRedeployTimer.Clear(); // Clear the dictionary
         }
     }
+    
     private void CleanPlayerStuff(CCSPlayerController player)
     {
         if (player == null || !player.IsValid) return;
 
-        // Reset the player's camera if they are in third-person mode
-        if (ThirdPerson.ContainsKey(player))
-        {
-            if (player.IsValid && player.PlayerPawn?.Value?.CameraServices != null)
-            {
-                player.PlayerPawn.Value.CameraServices.ViewEntity.Raw = uint.MaxValue;
-                Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
-            }
-            SetPlayerScale(player, 1f); // Reset player scale to normal
-
-            // Remove and dispose the third person camera prop
-            if (ThirdPerson[player] != null && ThirdPerson[player].IsValid)
-            {
-                ThirdPerson[player].Remove();
-            }
-            ThirdPerson.Remove(player);
-        }
+        if (PlayerStatuses.ContainsKey(player)) SetName(player, PlayerStatuses[player].DefaultName); // Reset the player name to default if it was changed
 
         // Clean up all player-related dictionaries
         if (PlayerStatuses.ContainsKey(player))

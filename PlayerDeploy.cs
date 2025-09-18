@@ -184,16 +184,27 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         player.Respawn(); // Respawn the player
         player.PlayerPawn.Value.Teleport(spawnPosition, null, new Vector(0, 0 , 50)); // Teleport the player to the deploy position
-        AddTimer(0.1f, () => // If the player is stuck, find spawn position again
+        AddTimer(1f, () => // If the player is stuck, find spawn position again
         {
-            if (IsPlayerStuck(player)) SpawnPlayerAtDeployPosition(player, deployPosition); // Try again
+           TryToUnstuckPlayer(player);
         }); 
         return true;
     }
+    private void TryToUnstuckPlayer(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
+
+        if (IsPlayerStuck(player))
+        {
+            var safeSpawnVolume = FindSafeSpawnVolume(player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsRotation, player);
+            if (safeSpawnVolume == null) player.Respawn();
+            else player.Pawn.Value!.Teleport(safeSpawnVolume);
+        }
+    }
     private unsafe Vector? FindSafeSpawnVolume(Vector basePos, QAngle facing, CCSPlayerController player)
     {
-        float[] distances = {140f, 135f, 130f, 125f, 120f, 115f, 110f, 105f, 100f, 95f, 90f, 85f, 80f, 75f, 70f, 65f, 60f, 55f, 50f};  // try far to near
-        float[] VerticalDistances = {60f, 50f, 40f, 30f};  // try above to lower
+        float[] distances = { 140f, 135f, 130f, 125f, 120f, 115f, 110f, 105f, 100f, 95f, 90f, 85f, 80f, 75f, 70f, 65f, 60f, 55f, 50f };  // try far to near
+        float[] VerticalDistances = { 60f, 50f, 40f, 30f };  // try above to lower
         Vector[] directions = new[]
         {
             new Vector(-1, 0, 0),  // back

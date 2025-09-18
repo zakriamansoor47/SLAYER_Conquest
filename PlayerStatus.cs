@@ -39,6 +39,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         public string DefaultName { get; set; } = "";
         public bool PlayerPressedKey { get; set; } = false;
+        public int TotalRevives { get; set; } = 0;
+        public int TotalKills { get; set; } = 0;
+        public int TotalDeaths { get; set; } = 0;
+        public int TotalAssists { get; set; } = 0;
         public PlayerStatusType Status { get; set; } = PlayerStatusType.Alive;
         public FlagStatus? CapturingFlag { get; set; } = null;
         public PlayerClassType ClassType { get; set; } = PlayerClassType.Assault;

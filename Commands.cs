@@ -163,10 +163,15 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             return;
         }
 
-        var safeSpawnVolume = FindSafeSpawnVolume(player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsRotation, player);
-        if (safeSpawnVolume == null) player.Respawn();
-
-        player.Pawn.Value!.Teleport(safeSpawnVolume);
+        TryToUnstuckPlayer(player);
+    }
+    [ConsoleCommand("ctf_end", "End the match immediately")]
+    [RequiresPermissions("@css/root")] // Only admins can use this command
+    public void EndMatchCMD(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player == null || !player.IsValid) return;
+        
+        EndMatch();
     }
     // Block player from dropping weapons
     [ConsoleCommand("drop")]

@@ -35,9 +35,17 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public MatchStatusInfo MatchStatus = new MatchStatusInfo();
     public enum MatchStatusType
     {
+        Starting,
         Ongoing,
         TerroristWin,
         CounterTerroristWin
+    }
+    public class PoseEntityInfo
+    {
+        public CDynamicProp? PoseEntity { get; set; } = null;
+        public CPointWorldText? NameTextEntity { get; set; } = null;
+        public List<string> Animations { get; set; } = new List<string>();
+        public string CurrentAnimation { get; set; } = "";
     }
     public class MatchStatusInfo
     {
@@ -48,8 +56,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public float MatchEndTime { get; set; } = 0f;
         public bool IsLowTicketsSoundPlaying { get; set; } = false;
         public List<uint> LowTicketsSoundEventGuid { get; set; } = new List<uint>();
-        public List<CPhysicsPropMultiplayer> PlayersMatchEndCamera { get; set; } = new List<CPhysicsPropMultiplayer>();
-        public Vector MatchEndCameraPosition { get; set; } = new Vector(0, 0, 0);
+        public CPhysicsPropMultiplayer? PlayersMatchEndCamera { get; set; } = null;
+        public (Vector, QAngle) MatchEndCameraPosition { get; set; } = (new Vector(0, 0, 0), new QAngle(0, 0, 0));
+        public PlayerSquad? BestSquad { get; set; } = null;
+        public Dictionary<PlayerSquad, List<PoseEntityInfo>> PoseEntities { get; set; } = new Dictionary<PlayerSquad, List<PoseEntityInfo>>();
+        public Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText)> PlayerLookingAtSquadPoseEntities { get; set; } = new Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText)>();
     }
     public float GetRemainingTeamTicketsPercentage(int team)
     {
@@ -90,8 +101,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         MatchStatus.IsLowTicketsSoundPlaying = false;
         MatchStatus.LowTicketsSoundEventGuid.Clear();
-        MatchStatus.PlayersMatchEndCamera.Clear();
-        MatchStatus.MatchEndCameraPosition = MatchEndCameraPosition.Item1; // Save the end camera position for later use
+        if (MatchStatus.PlayersMatchEndCamera != null && MatchStatus.PlayersMatchEndCamera.IsValid)
+        {
+            MatchStatus.PlayersMatchEndCamera.Remove(); // Remove the match end camera prop if it exists
+        }
+        MatchStatus.MatchEndCameraPosition = MatchEndCameraPosition; // Save the end camera position for later use
+        MatchStatus.BestSquad = null;
+        ClearMatchEndPlayerPoseEntities();
+        foreach (var text in MatchStatus.PlayerLookingAtSquadPoseEntities.Values)
+        {
+            if(text.Item2 != null && text.Item2.IsValid) text.Item2.Remove(); // Remove all world text entities
+        }
+        MatchStatus.PlayerLookingAtSquadPoseEntities.Clear(); // Clear the player pose entities
+
     }
     public void EndMatch()
     {
@@ -111,12 +133,25 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
 
         // Freeze all players and stop them from shooting
+        var players = Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV);
+        var winners = players.Where(p => p.TeamNum == (MatchStatus.Status == MatchStatusType.TerroristWin ? 2 : 3)).ToList();
+        var losers = players.Where(p => p.TeamNum != (MatchStatus.Status == MatchStatusType.TerroristWin ? 2 : 3)).ToList();
         var Manager = GetMenuManager();
         var recipientFilter = new RecipientFilter();
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV))
+        var WinnersrecipientFilter = new RecipientFilter();
+        var LosersrecipientFilter = new RecipientFilter();
+        var cameraProp = CreateEndMatchCameraProp(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // A global camera prop to be used for all players
+        MatchStatus.PlayersMatchEndCamera = cameraProp; // Save the camera prop for later use
+        foreach (var player in players)
         {
+            // Determine if the player is a winner or loser
+            var IsWinner = player.TeamNum == (MatchStatus.Status == MatchStatusType.TerroristWin ? 2 : 3);
+            if (IsWinner) WinnersrecipientFilter.Add(player);
+            else LosersrecipientFilter.Add(player);
+
             RemoveAllGlowOfPlayer(player); // Remove all glow effects from the player
-            if (PlayersRedeployTimer != null && PlayersRedeployTimer.ContainsKey(player))
+            RemoveThirdPerson(player); // Remove third person if any
+            if (PlayersRedeployTimer != null && PlayersRedeployTimer.ContainsKey(player)) // If the player has a redeploy timer, remove it
             {
                 if (PlayersRedeployTimer[player].Item1 != null) PlayersRedeployTimer[player].Item1?.Kill();
                 PlayersRedeployTimer.Remove(player);
@@ -126,99 +161,121 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             FreezePlayer(player);
             SetPlayerScale(player, 0.01f); // make player invisible
 
+            // Set the player's camera to the match end camera prop
+            if (cameraProp != null)
+            {
+                player.PlayerPawn.Value!.CameraServices!.ViewEntity.Raw = cameraProp.EntityHandle.Raw; // Set the player camera to the prop
+                Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
+                cameraProp.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
+            }
+
             if (!player.IsBot)
             {
                 recipientFilter.Add(player);
-                var cameraProp = CreateEndMatchCameraProp(player);
-                if (cameraProp != null)
-                {
-                    MatchStatus.PlayersMatchEndCamera.Add(cameraProp);
-                    // Play victory/defeat sound
-                    if (MatchStatus.Status == MatchStatusType.TerroristWin && player.TeamNum == 2 ) cameraProp.EmitSound("CTF.BF.Victory", new RecipientFilter { player }, Config.SoundsVolume);
-                    else if (MatchStatus.Status == MatchStatusType.CounterTerroristWin && player.TeamNum == 3) cameraProp.EmitSound("CTF.BF.Victory", new RecipientFilter { player }, Config.SoundsVolume);
-                    else cameraProp.EmitSound("CTF.BF.Defeat", new RecipientFilter { player }, Config.SoundsVolume);
-                }
-            } 
+            }
         }
+        // Play victory/defeat sound
+        cameraProp.EmitSound("CTF.BF.Victory", WinnersrecipientFilter, Config.SoundsVolume);
+        cameraProp.EmitSound("CTF.BF.Defeat", LosersrecipientFilter, Config.SoundsVolume);
 
         // Announce the match result
         ClearAllCenterMessageLines(); // Clear any existing center message lines
         UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner} Win</font>", recipientFilter, -1, true);
-        var bestSquad = GetBestSquad();
-        if (bestSquad != null)
+        MatchStatus.BestSquad = GetBestSquad();
+         // Calculate text position in front of camera
+        var color = MatchStatus.BestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
+        var position = new Vector(MatchStatus.MatchEndCameraPosition.Item1.X, MatchStatus.MatchEndCameraPosition.Item1.Y, MatchStatus.MatchEndCameraPosition.Item1.Z + 30f);
+        position = GetFrontPosition(position, MatchStatus.MatchEndCameraPosition.Item2, 10f); // Move Camera position slightly in front
+        var cameraZoomedOutPos = GetFrontPosition(MatchStatus.MatchEndCameraPosition.Item1, MatchStatus.MatchEndCameraPosition.Item2, -70f);
+        cameraZoomedOutPos = new Vector(cameraZoomedOutPos.X, cameraZoomedOutPos.Y, cameraZoomedOutPos.Z - 64f); // Lower the position to be at ground level
+        var faceCameraAngles = GetLookAtAngle(position, cameraZoomedOutPos);// Make entity face the camera
+        faceCameraAngles = new QAngle(0, faceCameraAngles.Y+90, 90); // Rotate text to face the camera properly
+        var worldtext = CreateWorldText($"Best Squad:\n{MatchStatus.BestSquad.SquadName}", position, faceCameraAngles, 30, color, "Orbitron", true);
+        if (MatchStatus.BestSquad != null)
         {
-            var squadMembers = string.Join(", ", bestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
-            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {bestSquad.SquadName}</font>", recipientFilter, -1, true);
-            UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='silver'>Kills: {bestSquad.TotalKills}, Assists: {bestSquad.TotalAssists}, Revives: {bestSquad.TotaltRevives}</font>", recipientFilter, -1, true);
+            // Create player pose entities for the best squad, and If the best squad is the winning team, play victory animations, else play defeat animations
+            MatchStatus.PoseEntities[MatchStatus.BestSquad] = CreateMatchEndPlayerPoseEntities(MatchStatus.BestSquad, MatchStatus.BestSquad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin);
+            // Assign the world text entity to all players in the best squad
+            foreach (var player in players)
+            {
+                MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (MatchStatus.BestSquad, worldtext);
+            }
+            // Print best squad details
+            var squadMembers = string.Join(", ", MatchStatus.BestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
+            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {MatchStatus.BestSquad.SquadName}</font>", recipientFilter, -1, true);
+            UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='silver'>Kills: {MatchStatus.BestSquad.TotalKills}, Assists: {MatchStatus.BestSquad.TotalAssists}, Revives: {MatchStatus.BestSquad.TotalRevives}</font>", recipientFilter, -1, true);
             UpdateCenterMessageLine(4, $"<font class='fontSize-m' color='gold'>{squadMembers}</font>", recipientFilter, -1, true);
         }
+        // Select a random map from the map list for changing after match end
+        var map = GetRandomMapsFromList(Config.MapList, 1)[0];
+        var mapName = map.Contains(":") ? map.Split(':')[0] : map;
+
+        AddTimer(Config.MatchEndShowBestSquadTime, () =>
+        {
+            ClearAllCenterMessageLines(); // Clear Best Squad message lines after 5 seconds
+            foreach (var player in recipientFilter) // Open Match End Menu
+            {
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchEndMapChangeDelay", mapName, Config.MatchEndMapChangeDelay]}");
+                MatchEndStatusMenu(player);
+
+                // Create Pose Entities for all squads if not already created, then we will show only squad pose entities the one the player is looking at, by hiding others squad pose entities in CheckTransmit
+                var squad = GetPlayerSquad(player);
+                if (squad != null && !MatchStatus.PoseEntities.ContainsKey(squad))
+                {
+                    MatchStatus.PoseEntities[squad] = CreateMatchEndPlayerPoseEntities(squad, squad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin);
+                    var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2 == null ? CreateWorldText($"Your Squad:\n{squad.SquadName}", position, faceCameraAngles, 30, color, "Orbitron", true) : MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
+                    UpdateWorldText(worldtext, $"Your Squad:\n{squad.SquadName}", squad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+                    MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (squad, worldtext);
+                }
+            }
+
+        });
+
+        /*AddTimer(Config.MatchEndMapChangeDelay + Config.MatchEndShowBestSquadTime, () =>
+        {
+            foreach (var text in MatchStatus.PlayerLookingAtSquadPoseEntities.Values)
+            {
+                if(text.Item2 != null && text.Item2.IsValid) text.Item2.Remove(); // Remove all world text entities
+            }
+            MatchStatus.PlayerLookingAtSquadPoseEntities.Clear(); // Clear the player pose entities they are no longer needed
+            ClearMatchEndPlayerPoseEntities(); // Clear the player pose entities
+            foreach (var player in recipientFilter) // Open Match End Menu
+            {
+                // Close any open menu
+                if (Manager != null) Manager.CloseMenu(player);
+            }
+            if (!string.IsNullOrEmpty(map))
+            {
+                if (!map.Contains(":"))
+                {
+                    Server.ExecuteCommand($"changelevel {map}");
+                }
+                else
+                {
+                    var workshopId = map.Split(':')[1];
+                    Server.ExecuteCommand($"host_workshop_map {workshopId}");
+                }
+            }
+        });*/
     }
     public void MatchStatusOnTick()
     {
         if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
         {
             // We teleport the match end cameras to match end position
-            MatchStatus.PlayersMatchEndCamera.ForEach(camera =>
+            if (MatchStatus.PlayersMatchEndCamera != null && MatchStatus.PlayersMatchEndCamera.IsValid)
             {
-                if (camera != null && camera.IsValid) camera.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
-            });
-            // A clever way to make the camera slowly move backwards (A zoom out animation, I am genius)
-            if (CalculateDistanceBetween(MatchStatus.MatchEndCameraPosition, MatchEndCameraPosition.Item1) <= 100f) // If the camera is already far enough, don't move it anymore
-            {
-                var newpos = GetFrontPosition(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2, -0.1f); // Get a position slightly in back of the camera
-                MatchEndCameraPosition.Item1 = newpos; // Update the camera position to the new position
+                MatchStatus.PlayersMatchEndCamera.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
+                // A clever way to make the camera slowly move backwards (A zoom out animation, I am genius)
+                if (CalculateDistanceBetween(MatchStatus.MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item1) <= 70f) // If the camera is already far enough, don't move it anymore
+                {
+                    var newpos = GetFrontPosition(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2, -0.25f); // Get a position slightly in back of the camera
+                    MatchEndCameraPosition.Item1 = newpos; // Update the camera position to the new position
+                }
             }
         }
     }
-    public CPhysicsPropMultiplayer? CreateEndMatchCameraProp(CCSPlayerController player)
-    {
-        if (player == null || !player.IsValid || player.Pawn.Value == null || player.IsBot || player.IsHLTV) return null;
 
-        var _cameraProp = Utilities.CreateEntityByName<CPhysicsPropMultiplayer>("prop_physics_multiplayer");
-        if (_cameraProp == null || !_cameraProp.IsValid) return null;
-
-        _cameraProp.AcceptInput("targetname", value: $"CTF_MatchEndCamera{player.PlayerPawn.Value.Index}");
-        _cameraProp.DispatchSpawn();
-        _cameraProp.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
-        _cameraProp.Collision.SolidFlags = 12;
-        _cameraProp.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
-        _cameraProp.TakesDamage = false;
-        _cameraProp.Render = Color.FromArgb(0, 255, 255, 255);
-
-        player.PlayerPawn.Value!.CameraServices!.ViewEntity.Raw = _cameraProp.EntityHandle.Raw; // Set the player camera to the prop
-        Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
-
-        _cameraProp.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the match End player Pose Position
-
-        return _cameraProp;
-    }
-    public void SetTeamTickets(int team, int tickets)
-    {
-        if (team == 2)
-        {
-            MatchStatus.TerroristTickets = tickets;
-        }
-        else if (team == 3)
-        {
-            MatchStatus.CounterTerroristTickets = tickets;
-        }
-    }
-    public int GetTeamTickets(int team)
-    {
-        if (team == 2)
-        {
-            return MatchStatus.TerroristTickets;
-        }
-        else if (team == 3)
-        {
-            return MatchStatus.CounterTerroristTickets;
-        }
-        return -1;
-    }
-    public int GetTotalTickets()
-    {
-        return MatchStatus.TerroristTickets + MatchStatus.CounterTerroristTickets;
-    }
     public void DecreaseTeamTickets(int team, int tickets)
     {
         if (team == 2)
@@ -245,7 +302,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         var CapturedFlagsByT = GetFlagsCapturedBy(CsTeam.Terrorist);
         var CapturedFlagsByCT = GetFlagsCapturedBy(CsTeam.CounterTerrorist);
-        if (DyingPlayerteam == 3) 
+        if (DyingPlayerteam == 3)
         {
             return CapturedFlagsByT > CapturedFlagsByCT;
         }
@@ -265,4 +322,189 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             SetTeamScore(teamNum, -1, true);
         }
     }
+    /// <summary>
+    /// Get a specified number of random maps from the map list
+    /// </summary>
+    /// <param name="mapList">The complete map list</param>
+    /// <param name="count">Number of random maps to select</param>
+    /// <returns>List of randomly selected maps</returns>
+    private List<string> GetRandomMapsFromList(List<string> mapList, int count)
+    {
+        if (mapList == null || mapList.Count == 0) return new List<string>();
+
+        if (mapList.Count == 1) return mapList;
+
+        // Get current map name
+        string currentMap = Server.MapName;
+
+        // Filter out the current map from the list
+        var availableMaps = mapList.Where(map => !map.Equals(currentMap, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // If no maps available after filtering, return empty list
+        if (availableMaps.Count == 0) return new List<string>();
+
+        // If requested count is greater than available maps, return all available maps
+        if (count >= availableMaps.Count) return availableMaps.ToList();
+
+        // Get random maps without duplicates
+        var random = new Random();
+        return availableMaps.OrderBy(x => random.Next()).Take(count).ToList();
+    }
+    public CPhysicsPropMultiplayer? CreateEndMatchCameraProp(Vector position, QAngle angles)
+    {
+        var _cameraProp = Utilities.CreateEntityByName<CPhysicsPropMultiplayer>("prop_physics_multiplayer");
+        if (_cameraProp == null || !_cameraProp.IsValid) return null;
+
+        _cameraProp.DispatchSpawn();
+        _cameraProp.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
+        _cameraProp.Collision.SolidFlags = 12;
+        _cameraProp.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
+        _cameraProp.TakesDamage = false;
+        _cameraProp.Render = Color.FromArgb(0, 255, 255, 255);
+
+        _cameraProp.Teleport(position, angles); // Teleport Camera prop to the match End player Pose Position
+
+        return _cameraProp;
+    }
+    public List<PoseEntityInfo> CreateMatchEndPlayerPoseEntities(PlayerSquad playerSquad, bool Victory = true)
+    {
+        if (playerSquad == null) return null;
+
+        if(GetSquadPoseEntities(playerSquad) != null && GetSquadPoseEntities(playerSquad).Count > 0)
+        {
+            // If the squad pose entities already exist, delete them first
+            ClearMatchEndPlayerSquadPoseEntities(playerSquad);
+        }
+        // Get the camera position and angles, lower the camera position to be at ground level
+        var cameraPosition = MatchStatus.MatchEndCameraPosition.Item1;
+        cameraPosition = new Vector(cameraPosition.X, cameraPosition.Y, cameraPosition.Z - 64f); // Lower the position to be at ground level
+        var cameraAngles = MatchStatus.MatchEndCameraPosition.Item2;
+
+        List<PoseEntityInfo> poseEntities = new List<PoseEntityInfo>();
+        
+        int memberIndex = 0;
+        foreach (var member in playerSquad.Members.Keys.Where(m => m != null && m.IsValid))
+        {
+            // Position entities in a staggered formation like Battlefield
+            var entityPosition = CalculateBattlefieldPosition(cameraPosition, cameraAngles, memberIndex, playerSquad.Members.Count);
+            var cameraZoomedOutPos = GetFrontPosition(MatchStatus.MatchEndCameraPosition.Item1, MatchStatus.MatchEndCameraPosition.Item2, -70f);
+            cameraZoomedOutPos = new Vector(cameraZoomedOutPos.X, cameraZoomedOutPos.Y, cameraZoomedOutPos.Z - 64f); // Lower the position to be at ground level
+            
+            // Make entity face the camera
+            var faceCameraAngles = GetLookAtAngle(entityPosition, cameraZoomedOutPos);
+            
+            var modelname = member.PlayerPawn.Value.CBodyComponent!.SceneNode!.GetSkeletonInstance().ModelState.ModelName;
+            var animations = Victory ? GetRandomVictoryAnimationGroup() : GetRandomDefeatAnimationGroup();
+            
+            var Entity = CreatePlayerEntity(entityPosition, faceCameraAngles, modelname, "", animations[0], false, false)[0];
+            var positionInFront = GetFrontPosition(entityPosition, faceCameraAngles, 20f);
+            var textEntityPosition = new Vector(positionInFront.X, positionInFront.Y, positionInFront.Z + 40f);
+            var color = member.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
+            var message = $" {PlayerStatuses[member].DefaultName} " +
+                $"\nKills: {PlayerStatuses[member].TotalKills}\nDeaths: {PlayerStatuses[member].TotalDeaths}\nAssists: {PlayerStatuses[member].TotalAssists}\nRevives: {PlayerStatuses[member].TotalRevives}";
+            var NameTextEntity = CreateWorldText(message, textEntityPosition, new QAngle(0, faceCameraAngles.Y+90, 90), 30, color, "Orbitron", true);
+
+            var poseInfo = new PoseEntityInfo
+            {
+                PoseEntity = Entity,
+                NameTextEntity = NameTextEntity,
+                Animations = animations,
+                CurrentAnimation = animations[0]
+            };
+            poseEntities.Add(poseInfo);
+            
+            memberIndex++;
+        }
+
+        return poseEntities;
+    }
+    /// <summary>
+    /// Calculate position in a staggered formation like Battlefield
+    /// </summary>
+    /// <param name="cameraPosition"></param>
+    /// <param name="cameraAngles"></param>
+    /// <param name="memberIndex"></param>
+    /// <param name="totalMembers"></param>
+    /// <returns></returns>
+    private Vector CalculateBattlefieldPosition(Vector cameraPosition, QAngle cameraAngles, int memberIndex, int totalMembers)
+    {
+        // Base position in front of camera
+        float baseDistance = 50; // Staggered depth
+        var basePosition = GetPositionAtDirection(cameraPosition, cameraAngles, baseDistance);
+
+        // Side offset for formation
+        float sideOffset = 0f;
+        if (totalMembers > 1)
+        {
+            float spacing = 65f;
+            // Center the formation 
+            float totalSpread = (totalMembers - 1) * spacing;
+            float centerOffset = totalSpread / 2f;
+            // Calculate position from left to right, centered
+            sideOffset = centerOffset - (memberIndex * spacing);
+        }
+        // SHIFT ENTIRE FORMATION TO THE LEFT
+        //float leftShift = 20f; // Negative value moves right, positive moves left
+        //sideOffset += leftShift;
+
+        // Apply side offset perpendicular to camera direction
+        if (Math.Abs(sideOffset) > 0.1f)
+        {
+            var sidewaysAngle = new QAngle(0, cameraAngles.Y + 90f, 0); // Perpendicular to camera
+            basePosition = GetPositionAtDirection(basePosition, sidewaysAngle, sideOffset);
+        }
+
+        return basePosition;
+    }
+    
+    public List<CDynamicProp> GetSquadPoseEntities(PlayerSquad squad)
+    {
+        if (squad == null) return null;
+        if (MatchStatus.PoseEntities.ContainsKey(squad))
+        {
+            return MatchStatus.PoseEntities[squad].Select(p => p.PoseEntity).ToList();
+        }
+        return null;
+    }
+    public void ClearMatchEndPlayerSquadPoseEntities(PlayerSquad squad)
+    {
+        if (MatchStatus.PoseEntities == null || MatchStatus.PoseEntities.Count == 0) return;
+
+        if (MatchStatus.PoseEntities.ContainsKey(squad))
+        {
+            foreach (var poseInfo in MatchStatus.PoseEntities[squad])
+            {
+                if (poseInfo.PoseEntity != null && poseInfo.PoseEntity.IsValid)
+                {
+                    poseInfo.PoseEntity.Remove();
+                }
+                if (poseInfo.NameTextEntity != null && poseInfo.NameTextEntity.IsValid)
+                {
+                    poseInfo.NameTextEntity.Remove();
+                }
+            }
+        }
+        MatchStatus.PoseEntities.Remove(squad);
+    }
+    public void ClearMatchEndPlayerPoseEntities()
+    {
+        if (MatchStatus.PoseEntities == null || MatchStatus.PoseEntities.Count == 0) return;
+
+        foreach (var squadPoses in MatchStatus.PoseEntities.Values)
+        {
+            foreach (var poseInfo in squadPoses)
+            {
+                if (poseInfo.PoseEntity != null && poseInfo.PoseEntity.IsValid)
+                {
+                    poseInfo.PoseEntity.Remove();
+                }
+                if (poseInfo.NameTextEntity != null && poseInfo.NameTextEntity.IsValid)
+                {
+                    poseInfo.NameTextEntity.Remove();
+                }
+            }
+        }
+        MatchStatus.PoseEntities.Clear();
+    }
+    
 }
