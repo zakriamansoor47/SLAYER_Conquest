@@ -102,6 +102,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_CBodyComponent");
         });
     }
+    private void GivePlayerAgent(CCSPlayerController player, string modelName)
+    {
+        if(player == null || !player.IsValid || player.PlayerPawn.Value == null || string.IsNullOrEmpty(modelName)) return;
+
+        try
+        {
+            Server.NextFrame(() =>
+            {
+                player.PlayerPawn.Value.SetModel($"{modelName}");
+            });
+        }
+        catch { }
+    }
     public string RemoveWeaponPrefix(string weaponName)
     {
         if (string.IsNullOrEmpty(weaponName)) return weaponName;
@@ -241,7 +254,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public CDynamicProp[] CreatePlayerEntity(Vector Position, QAngle Rotation, string modelpath = "", string animationModelPath = "", string animation = "tools_preview", bool PlayAnimationsInLoop = true, bool HaveCollision = true, bool TakesDamage = false, int Health = 100)
     {
         var model = Utilities.CreateEntityByName<CDynamicProp>("prop_dynamic");
-        if (model == null)
+        if (model == null || !model.IsValid)
             return null;
         CDynamicProp[] models = new CDynamicProp[2];
         model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= unchecked((uint)~(1 << 2));
@@ -317,7 +330,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (string.IsNullOrWhiteSpace(message) || position == null || rotation == null) return null;
         var entity = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext");
-        if (entity == null) return null;
+        if (entity == null || !entity.IsValid) return null;
 
         entity.MessageText = message;
         entity.Enabled = true;
@@ -476,7 +489,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Logger.LogError("Error while dropping Weapon via className: {ex}", ex.Message);
         }
     }
-    private void RemovePlayerWeapon(CCSPlayerController player, bool primary = false, bool secondary = false, bool grenades = false)
+    private void RemovePlayerWeapon(CCSPlayerController player, bool primary = false, bool secondary = false, bool grenades = false, bool knife = false)
     {
         if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player.PlayerPawn.Value!.WeaponServices!.MyWeapons == null) return;
 
@@ -496,6 +509,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     DropWeapon(player, gun.Value.DesignerName);
                 }
                 if (weaponData.GearSlot == gear_slot_t.GEAR_SLOT_GRENADES && grenades)
+                {
+                    DropWeapon(player, gun.Value.DesignerName);
+                }
+                if (weaponData.GearSlot == gear_slot_t.GEAR_SLOT_KNIFE && knife)
                 {
                     DropWeapon(player, gun.Value.DesignerName);
                 }

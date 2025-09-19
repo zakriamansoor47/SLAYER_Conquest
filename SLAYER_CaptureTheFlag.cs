@@ -20,6 +20,7 @@ using System.Runtime.InteropServices;
 using T3MenuSharedApi;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Entities;
+using System.Text.RegularExpressions;
 
 // Used these to remove compile warnings
 #pragma warning disable CS8600
@@ -64,6 +65,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public Timer? UpdatePlayerStatesTimer = null;
     public override void Load(bool hotReload)
     {
+        ResetMatchStatusStuff();
         ClearStuff(); // Clear all previous data
 
         // Load the map config file
@@ -84,55 +86,67 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             manifest.AddResource("models/slayer/medic_pouch/medic_pouch.vmdl");
             manifest.AddResource("models/slayer/radio/radio.vmdl");
             manifest.AddResource("soundevents/slayer_capturetheflag.vsndevts");
+            foreach (var playerClass in Config.ClassAttributes.Values)
+            {
+                if (!string.IsNullOrEmpty(playerClass.T_Model))
+                    manifest.AddResource(playerClass.T_Model);
+                if (!string.IsNullOrEmpty(playerClass.CT_Model))
+                    manifest.AddResource(playerClass.CT_Model);
+            }
         });
         RegisterListener<Listeners.OnMapStart>((mapname) =>
         {
+            ResetMatchStatusStuff();
             ClearStuff(); // Clear all previous data
+            PlayerStatuses.Clear();
         });
         RegisterListener<Listeners.OnTick>(() =>
         {
-            // Check for player revives
-            CheckReviveOnTick();
             // Print center message on tick, if any
             PrintCenterMessageTick();
             // Match status on tick
             MatchStatusOnTick();
-            // Update third-person cameras for players
-            if (Config.AllowThirdPerson && ThirdPerson.Count > 0)
+            if (MatchStatus.Status == MatchStatusType.Ongoing) // Match is ongoing
             {
-                foreach (var player in ThirdPerson.ToList())
+                // Check for player revives
+                CheckReviveOnTick();
+                // Update third-person cameras for players
+                if (Config.AllowThirdPerson && ThirdPerson.Count > 0)
                 {
-                    if (player.Key == null || !player.Key.IsValid || player.Key.Connected != PlayerConnectedState.PlayerConnected || player.Key.IsBot || player.Key.IsHLTV || player.Key.TeamNum < 2)
+                    foreach (var player in ThirdPerson.ToList())
                     {
-                        ThirdPerson.Remove(player.Key!);
-                        player.Key!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
-                        Utilities.SetStateChanged(player.Key.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-                        continue;
-                    }
-                    else
-                    {
-                        UpdateCameraSmooth(player.Value!, player.Key);
+                        if (player.Key == null || !player.Key.IsValid || player.Key.Connected != PlayerConnectedState.PlayerConnected || player.Key.IsBot || player.Key.IsHLTV || player.Key.TeamNum < 2)
+                        {
+                            ThirdPerson.Remove(player.Key!);
+                            player.Key!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
+                            Utilities.SetStateChanged(player.Key.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+                            continue;
+                        }
+                        else
+                        {
+                            UpdateCameraSmooth(player.Value!, player.Key);
+                        }
                     }
                 }
-            }
-            foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value != null && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
-            {
-                if (Config.AllowThirdPerson && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Attack2")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
+                foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value != null && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
                 {
-                    if (ThirdPerson.ContainsKey(player)) // If the player is in third-person mode, switch to first-person
+                    if (Config.AllowThirdPerson && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Attack2")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
                     {
-                        ThirdPerson.Remove(player); // Remove the player from third-person dictionary with a slight delay
-                        player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue; // Reset the camera view entity
-                        Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}first-person {ChatColors.Gold}mode.");
+                        if (ThirdPerson.ContainsKey(player)) // If the player is in third-person mode, switch to first-person
+                        {
+                            ThirdPerson.Remove(player); // Remove the player from third-person dictionary with a slight delay
+                            player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue; // Reset the camera view entity
+                            Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}first-person {ChatColors.Gold}mode.");
+                        }
+                        else if (!ThirdPerson.ContainsKey(player)) // If the player is not in third-person mode, switch to third-person
+                        {
+                            ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
+                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}third-person {ChatColors.Gold}mode.");
+                        }
+                        AddTimer(0.5f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
+                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
                     }
-                    else if (!ThirdPerson.ContainsKey(player)) // If the player is not in third-person mode, switch to third-person
-                    {
-                        ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}third-person {ChatColors.Gold}mode.");
-                    }
-                    AddTimer(0.5f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
-                    PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
                 }
             }
         });
@@ -144,8 +158,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 // If no player is found or the player is invalid, continue
                 if (player == null || !player.IsValid) continue;
 
-                // If the match has ended, hide all players from everyone
-                if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
+                // If the match has starting/ended, hide all players from everyone
+                if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
                 {
                     // Hide all players from this player, except themselves cause that breaks stuff
                     foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
@@ -240,6 +254,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Server.ExecuteCommand("mp_give_player_c4 0");
             Server.ExecuteCommand($"mp_autoteambalance 0");
             Server.ExecuteCommand($"mp_limitteams 0");
+            Server.ExecuteCommand($"mp_roundtime 60");
             Server.ExecuteCommand($"mp_drop_grenade_enable 0");
             Server.ExecuteCommand($"mp_drop_knife_enable 0");
             Server.ExecuteCommand($"mp_death_drop_c4 0");
@@ -262,6 +277,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             fileHandler.LoadFlagPositions();
 
+            if (MatchStatus.Status == MatchStatusType.Starting)
+            {
+                PrepareMatchStart(); // Prepare for match start (reset tickets, squads, etc.)
+                return HookResult.Continue;
+            }
+
+            StartMatch(); // Start the match immediately if not already starting
+
             foreach (var flag in FlagPositions.Where(f => f.Key != null && f.Value != null))
             {
                 // Create the flag entity
@@ -272,8 +295,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 UpdateFlagsStatus(); // Update all flags status
             }, TimerFlags.REPEAT);
-
-            StartMatch();
 
             foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
             {
@@ -338,6 +359,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var player = @event.Userid;
             if (player == null || !player.IsValid) return HookResult.Continue;
 
+
             try
             {
                 var manager = GetMenuManager();
@@ -345,6 +367,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
             catch { }
             SetPlayerScale(player, 1f); // Reset player scale to normal
+
             if (!PlayerStatuses.ContainsKey(player))
             {
                 PlayerStatuses[player] = new PlayerStatus();
@@ -375,11 +398,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 player!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
                 Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
             }
+
             // Apply class with slight delay to ensure player is fully spawned
             AddTimer(0.1f, () =>
             {
                 if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value!.LifeState != (byte)LifeState_t.LIFE_ALIVE) return; // Check if the player is connected and in a valid team
-                if (!PlayerStatuses.ContainsKey(player))PlayerStatuses[player] = new PlayerStatus();
+                if (!PlayerStatuses.ContainsKey(player)) PlayerStatuses[player] = new PlayerStatus();
                 ApplyPlayerClass(player);
                 var squad = AddPlayerToSquad(player, player.TeamNum);
                 if (squad != null) ShowSquadInfo(player);
@@ -389,14 +413,44 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     PlayerStatuses[player].Squad = squad;
                 }
             });
+            if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
+            {
+                AddTimer(0.2f, () =>
+                {
+                    SetPlayerNameAndClan(player);
+                    if (!player.IsBot) OpenPlayerClassMenu(player); // Open the player class selection menu
+                    FreezePlayer(player);
+                    SetPlayerScale(player, 0.01f); // make player invisible
+                    player.RemoveWeapons(); // Remove all weapons from the player
+
+                    // Set the player's camera to the match end camera prop
+                    if (MatchStatus.PlayersMatchEndCamera != null || MatchStatus.PlayersMatchEndCamera.IsValid)
+                    {
+                        player.PlayerPawn.Value!.CameraServices!.ViewEntity.Raw = MatchStatus.PlayersMatchEndCamera.EntityHandle.Raw; // Set the player camera to the prop
+                        Utilities.SetStateChanged(player.PlayerPawn.Value, "CBasePlayerPawn", "m_pCameraServices");
+                        MatchStatus.PlayersMatchEndCamera.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the desired position
+                    }
+
+                    var playerSquad = GetPlayerSquad(player);
+                    CreateMatchEndPlayerPoseEntities(playerSquad, true, player); // Create the match end player pose entities for this player
+                    MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (playerSquad, null); // Set the player's looking at squad pose entity
+
+                    float remainingTime = MatchStatus.MatchStartTime - Server.CurrentTime;
+                    int secondsLeft = (int)Math.Ceiling(remainingTime);
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
+                });
+            }
+            
             // Set ThirdPerson mode if enabled and player is not a bot
-            if (Config.AllowThirdPerson && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
+            if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
         
             
             return HookResult.Continue;
         });
         RegisterEventHandler<EventPlayerHurt>((@event, @info) =>
         {
+            if(MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
+
             var player = @event.Userid;
             var attacker = @event.Attacker;
 
@@ -415,6 +469,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         });
         RegisterEventHandler<EventPlayerDeath>((@event, @info) =>
         {
+            if(MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
+
             var player = @event.Userid;
             var weapon = @event.Weapon;
             var attacker = @event.Attacker;
@@ -556,6 +612,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         // Clear all data
         ClearStuff();
+        PlayerStatuses.Clear();
     }
     private void ClearStuff()
     {
@@ -569,7 +626,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         PlayerWeaponZoomed.Clear();
         PlayerWeaponZoomedCount.Clear();
         PlayerSquads.Clear();
-        PlayerStatuses.Clear();
         PlayerDeployPositions.Clear();
         PlayerSeeableGlow.Clear();
         RemoveDropWeaponTimer.Clear();

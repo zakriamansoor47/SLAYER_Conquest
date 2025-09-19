@@ -55,6 +55,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public List<string> SecondaryWeapons { get; set; } = new List<string>();
         public List<string> Equipment { get; set; } = new List<string>();
         public float Speed { get; set; } = 1.0f;
+        public string model { get; set; } = ""; 
     }
     private PlayerClassType GetPlayerClassType(CCSPlayerController? player)
     {
@@ -91,7 +92,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
     }
 
-    private void ApplyPlayerClass(CCSPlayerController player)
+    private void ApplyPlayerClass(CCSPlayerController player, bool giveWeapons = true)
     {
         if (player == null || !player.IsValid || !player.PawnIsAlive) return;
         
@@ -112,6 +113,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             
             PlayerStatuses[player].ClassType = playerStatus.ClassType;
         }
+        _classConfigs[playerStatus.ClassType].model = player.TeamNum == 2 ? Config.ClassAttributes[playerStatus.ClassType.ToString()].T_Model : Config.ClassAttributes[playerStatus.ClassType.ToString()].CT_Model;
 
         var config = _classConfigs[playerStatus.ClassType];
         // Then update the bot handling code:
@@ -120,93 +122,98 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             // Select a random class type
             var classTypes = Enum.GetValues(typeof(PlayerClassType));
             PlayerClassType randomClass = (PlayerClassType)_random.Next(classTypes.Length);
-            
+
             // Make sure it's a valid class with configuration
             if (_classConfigs.ContainsKey(randomClass))
             {
                 PlayerStatuses[player].ClassType = randomClass;
                 config = _classConfigs[randomClass];
+                config.model = player.TeamNum == 2 ? Config.ClassAttributes[randomClass.ToString()].T_Model : Config.ClassAttributes[randomClass.ToString()].CT_Model;
             }
         }
-
         // If the player is alive, apply the class configuration
         if (player.PlayerPawn?.Value != null)
         {
             player.PlayerPawn!.Value!?.ItemServices?.As<CCSPlayer_ItemServices>().RemoveWeapons(); // Remove all weapons
-            player.GiveNamedItem("weapon_knife"); // Give knife
-
             // Set health and armor
             player.PlayerPawn.Value.Health = config.Health;
             if (config.HasHelmet) player.GiveNamedItem("item_assaultsuit"); // Give helmet 
             player.PlayerPawn.Value.ArmorValue = config.Armor;
             // Set speed
             player.PlayerPawn.Value.VelocityModifier = config.Speed;
+            // Set the player model
+            GivePlayerAgent(player, config.model);
 
             if (!PlayerStatuses.ContainsKey(player))
             {
                 PlayerStatuses[player].SelectedWeapons = new PlayerSelectedWeapons { PlayerClass = (int)PlayerStatuses[player].ClassType };
             }
-            // Give primary weapon - use selected if available, or random for bots
-            if (PlayerStatuses.TryGetValue(player, out var Primary) && !string.IsNullOrEmpty(Primary.SelectedWeapons.PrimaryWeapon) && config.PrimaryWeapons.Contains(Primary.SelectedWeapons.PrimaryWeapon))
+            if (giveWeapons)
             {
-                player.GiveNamedItem(Primary.SelectedWeapons.PrimaryWeapon);
-            }
-            else if (config.PrimaryWeapons.Count > 0)
-            {
-                int randomIndex = _random.Next(0, config.PrimaryWeapons.Count);
-                var weapon = config.PrimaryWeapons[randomIndex];
-                player.GiveNamedItem(weapon);
-                if (!player.IsBot) PlayerStatuses[player].SelectedWeapons.PrimaryWeapon = weapon; // Save selected primary weapon for human players only
-            }
-
-            // Give secondary weapon - use selected if available, or random for bots
-            if (PlayerStatuses.TryGetValue(player, out var Secondary) && !string.IsNullOrEmpty(Secondary.SelectedWeapons.SecondaryWeapon) && config.SecondaryWeapons.Contains(Secondary.SelectedWeapons.SecondaryWeapon))
-            {
-                player.GiveNamedItem(Secondary.SelectedWeapons.SecondaryWeapon);
-            }
-            else if (config.SecondaryWeapons.Count > 0)
-            {
-                int randomIndex = _random.Next(0, config.SecondaryWeapons.Count);
-                var weapon = config.SecondaryWeapons[randomIndex];
-                player.GiveNamedItem(weapon);
-                if(!player.IsBot)PlayerStatuses[player].SelectedWeapons.SecondaryWeapon = weapon; // Save selected secondary weapon for human players only
-            }
-
-            // Give equipment - use selected if available, or random for bots
-            if (PlayerStatuses.TryGetValue(player, out var equipments) && equipments.SelectedWeapons.Equipment.Count > 0 && equipments.SelectedWeapons.Equipment.All(item => config.Equipment.Contains(item)))
-            {
-                foreach (var item in equipments.SelectedWeapons.Equipment)
+                // Give primary weapon - use selected if available, or random for bots
+                if (PlayerStatuses.TryGetValue(player, out var Primary) && !string.IsNullOrEmpty(Primary.SelectedWeapons.PrimaryWeapon) && config.PrimaryWeapons.Contains(Primary.SelectedWeapons.PrimaryWeapon))
                 {
-                    player.GiveNamedItem(item);
+                    player.GiveNamedItem(Primary.SelectedWeapons.PrimaryWeapon);
                 }
-            }
-            else if (config.Equipment.Count > 0)
-            {
-                var selectedEquipment = new List<string>();
-                int equipmentCount = Math.Min(config.Equipment.Count, _random.Next(0, 4));
-                // Get a random subset of equipment
-                var shuffledEquipment = config.Equipment.OrderBy(x => _random.Next()).ToList();
-                if (player.IsBot)
+                else if (config.PrimaryWeapons.Count > 0)
                 {
-                    // Take the first n items from the shuffled list
-                    for (int i = 0; i < equipmentCount; i++)
+                    int randomIndex = _random.Next(0, config.PrimaryWeapons.Count);
+                    var weapon = config.PrimaryWeapons[randomIndex];
+                    player.GiveNamedItem(weapon);
+                    if (!player.IsBot) PlayerStatuses[player].SelectedWeapons.PrimaryWeapon = weapon; // Save selected primary weapon for human players only
+                }
+
+                // Give secondary weapon - use selected if available, or random for bots
+                if (PlayerStatuses.TryGetValue(player, out var Secondary) && !string.IsNullOrEmpty(Secondary.SelectedWeapons.SecondaryWeapon) && config.SecondaryWeapons.Contains(Secondary.SelectedWeapons.SecondaryWeapon))
+                {
+                    player.GiveNamedItem(Secondary.SelectedWeapons.SecondaryWeapon);
+                }
+                else if (config.SecondaryWeapons.Count > 0)
+                {
+                    int randomIndex = _random.Next(0, config.SecondaryWeapons.Count);
+                    var weapon = config.SecondaryWeapons[randomIndex];
+                    player.GiveNamedItem(weapon);
+                    if (!player.IsBot) PlayerStatuses[player].SelectedWeapons.SecondaryWeapon = weapon; // Save selected secondary weapon for human players only
+                }
+
+                // Give equipment - use selected if available, or random for bots
+                if (PlayerStatuses.TryGetValue(player, out var equipments) && equipments.SelectedWeapons.Equipment.Count > 0 && equipments.SelectedWeapons.Equipment.All(item => config.Equipment.Contains(item)))
+                {
+                    foreach (var item in equipments.SelectedWeapons.Equipment)
                     {
-                        string item = shuffledEquipment[i];
                         player.GiveNamedItem(item);
                     }
                 }
-                else
+                else if (config.Equipment.Count > 0)
                 {
-                    // Default equipment if none selected for human players
-                    foreach (var item in config.Equipment)
+                    var selectedEquipment = new List<string>();
+                    int equipmentCount = Math.Min(config.Equipment.Count, _random.Next(0, 4));
+                    // Get a random subset of equipment
+                    var shuffledEquipment = config.Equipment.OrderBy(x => _random.Next()).ToList();
+                    if (player.IsBot)
                     {
-                        player.GiveNamedItem(item);
-                        selectedEquipment.Add(item);
+                        // Take the first n items from the shuffled list
+                        for (int i = 0; i < equipmentCount; i++)
+                        {
+                            string item = shuffledEquipment[i];
+                            player.GiveNamedItem(item);
+                        }
                     }
-                    PlayerStatuses[player].SelectedWeapons.Equipment = selectedEquipment;
+                    else
+                    {
+                        // Default equipment if none selected for human players
+                        foreach (var item in config.Equipment)
+                        {
+                            player.GiveNamedItem(item);
+                            selectedEquipment.Add(item);
+                        }
+                        PlayerStatuses[player].SelectedWeapons.Equipment = selectedEquipment;
+                    }
                 }
+                player.GiveNamedItem("weapon_knife"); // Give knife
             }
         }
+
         
         // Notify the player
         player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}Your {ChatColors.Green}{config.Name} {ChatColors.Gold}class has been applied.");
@@ -223,17 +230,28 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             squad.Members[player] = selectedClass; // Update the player's class in their squad
         }
-        
-        // Notify the player
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have selected the {ChatColors.Green}{selectedClass} {ChatColors.Gold}class.");
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your class will be applied when you respawn.");
-        
-        // Apply class abilities immediately if the player is alive and config allows it
-        if (player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && Config.AllowClassChangeWhileAlive)
+        if (MatchStatus.Status == MatchStatusType.Starting)
         {
-            ApplyPlayerClass(player);
-        }
+            ApplyPlayerClass(player, false); // Apply the class immediately
+            AddTimer(0.1f, () =>
+            {
+                var ent = MatchStatus.PoseEntities[squad].FirstOrDefault(e => e.PlayerName == PlayerStatuses[player].DefaultName);
+                if (ent != null && ent.PoseEntity != null)
+                {
+                    ent.PoseEntity.Remove();
+                    ent.NameTextEntity.Remove();
+                    MatchStatus.PoseEntities[squad].Remove(ent);
 
+                    CreateMatchEndPlayerPoseEntities(squad, true, player);
+                }
+            });
+        }
+        else
+        {
+            // Notify the player
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have selected the {ChatColors.Green}{selectedClass} {ChatColors.Gold}class.");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your class will be applied when you respawn.");
+        }
     }
     // Print class details to chat
     private void PrintClassDetailsToChat(CCSPlayerController player, PlayerClassType classType)

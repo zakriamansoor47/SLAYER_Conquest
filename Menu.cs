@@ -517,10 +517,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var manager = GetMenuManager();
         if (manager == null) return;
         // Create player class selection menu
-        var classMenu = manager.CreateMenu("Select Player Class", false, true, true, false);
+        var classMenu = manager.CreateMenu("Select Player Class", false, false, true, false);
         if (parentMenu != null)
         {
-            classMenu = manager.CreateMenu("Select Player Class", false, true, true, true, false);
+            classMenu = manager.CreateMenu("Select Player Class", false, false, true, true, false);
             classMenu.ParentMenu = parentMenu;
         }
 
@@ -530,7 +530,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (squad != null && squad.Members.ContainsKey(player))
         {
             currentClass = squad.Members[player];
-            classMenu.AddOption($"<font class='fontSize-m' color='yellow'>Current Class: </font><font class='fontSize-m' color='lime'>{Enum.GetName(currentClass)}</font>", (p, option) => { }, true);
+            classMenu.AddOption($"<font class='fontSize-m' color='yellow'>Current Class: </font><font class='fontSize-m' color='lime'>{Enum.GetName(currentClass)}</font>", (p, option) => { });
         }
         // Add each class as an option
         foreach (var classType in Enum.GetValues(typeof(PlayerClassType)).Cast<PlayerClassType>())
@@ -1021,7 +1021,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             if (!PlayersRedeployTimer.ContainsKey(player))
             {
-                if (PlayerStatuses.ContainsKey(deployPosition.Player) && PlayerStatuses[deployPosition.Player].Status == PlayerStatusType.Combat)
+                if (deployPosition.Player != null && PlayerStatuses.ContainsKey(deployPosition.Player) && PlayerStatuses[deployPosition.Player].Status == PlayerStatusType.Combat)
                 {
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.DarkRed}{PlayerStatuses[deployPosition.Player].DefaultName} is in Combat!");
                     manager.CloseMenu(p);
@@ -1097,6 +1097,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var menu = manager.CreateMenu($"<font color='gold'>Match Statistics</font>", false, false, true, true, false);
         menu.ParentMenu = parentMenu;
+        menu.IsExitable = false;
 
         string Winner = MatchStatus.Status == MatchStatusType.TerroristWin ? "Terrorists" : "Counter-Terrorists";
         var matchDuration = TimeSpan.FromSeconds(MatchStatus.MatchEndTime - MatchStatus.MatchStartTime);
@@ -1148,7 +1149,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var playerSquad = GetPlayerSquad(player);
         var menu = manager.CreateMenu($"<font color='gold'>Your Squad:</font> <font color='lime'>{playerSquad.SquadName}</font>", false, false, true, true, false);
         menu.ParentMenu = parentMenu;
-
+        
 
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Kills: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalKills}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Deaths: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalDeaths}</font>", (p, option) => { });

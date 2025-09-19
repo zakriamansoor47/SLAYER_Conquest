@@ -17,6 +17,7 @@ using System.Drawing;
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using T3MenuSharedApi;
+using System.Text.RegularExpressions;
 
 // Used these to remove compile warnings
 #pragma warning disable CS8600
@@ -164,6 +165,15 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
 
         TryToUnstuckPlayer(player);
+    }
+    [ConsoleCommand("ctf_start", "Start the match immediately")]
+    [RequiresPermissions("@css/root")] // Only admins can use this command
+    public void StartMatchCMD(CCSPlayerController? player, CommandInfo command)
+    {
+        if (player == null || !player.IsValid) return;
+
+        MatchStatus.Status = MatchStatusType.Ongoing;
+        Server.ExecuteCommand("mp_restartgame 1");
     }
     [ConsoleCommand("ctf_end", "End the match immediately")]
     [RequiresPermissions("@css/root")] // Only admins can use this command

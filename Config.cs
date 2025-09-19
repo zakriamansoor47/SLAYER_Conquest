@@ -11,7 +11,6 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
     [JsonPropertyName("CTerroristTeamColor")] public string CTerroristTeamColor { get; set; } = "royalblue"; // royal blue
     [JsonPropertyName("FocusTheDeployCameraOnDeployPosition")] public bool FocusTheDeployCameraOnDeployPosition { get; set; } = false;
     [JsonPropertyName("NoBlock")] public bool NoBlock { get; set; } = false;
-    [JsonPropertyName("AllowClassChangeWhileAlive")] public bool AllowClassChangeWhileAlive { get; set; } = false;
     [JsonPropertyName("ShowPlayerClassInPlayerName")] public bool ShowPlayerClassInPlayerName { get; set; } = true;
     [JsonPropertyName("ShowPlayerSquadNameInPlayerClan")] public bool ShowPlayerSquadNameInPlayerClan { get; set; } = true;
     [JsonPropertyName("SetGlowOnSquadMembers")] public bool SetGlowOnSquadMembers { get; set; } = true;
@@ -39,6 +38,7 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
     [JsonPropertyName("PlayerTPCameraXYOffset")] public float PlayerTPCameraXYOffset { get; set; } = -30; // prop camera XY offset
     [JsonPropertyName("PlayerTPCameraZOffset")] public float PlayerTPCameraZOffset { get; set; } = 75; // Prop camera Z offset
     [JsonPropertyName("PlayerTPCameraRightOffset")] public float PlayerTPCameraRightOffset { get; set; } = -10; // Prop camera right offset
+    [JsonPropertyName("MatchStartTime")] public float MatchStartTime { get; set; } = 60f; // Time to show best squad at match start
     [JsonPropertyName("MatchEndShowBestSquadTime")] public float MatchEndShowBestSquadTime { get; set; } = 10f; // Time to show best squad at match end
     [JsonPropertyName("MatchEndMapChangeDelay")] public float MatchEndMapChangeDelay { get; set; } = 20f; // Time to change map at match end
 
@@ -104,6 +104,8 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             Armor = 100,
             HasHelmet = true,
             Speed = 1.0f,
+            T_Model = "characters/models/tm_jungle_raider/tm_jungle_raider_variantb.vmdl",
+            CT_Model = "characters/models/ctm_st6/ctm_st6_varianti.vmdl",
             Description = "Balanced combat specialist with extra grenades"
         },
         ["Engineer"] = new ClassAttributeConfig
@@ -112,6 +114,8 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             Armor = 150,
             HasHelmet = true,
             Speed = 0.9f,
+            T_Model = "characters/models/tm_jungle_raider/tm_jungle_raider_variantd.vmdl",
+            CT_Model = "characters/models/ctm_swat/ctm_swat_varianti.vmdl",
             Description = "Support specialist with extra ammo"
         },
         ["Medic"] = new ClassAttributeConfig
@@ -120,6 +124,8 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             Armor = 70,
             HasHelmet = true,
             Speed = 1.1f,
+            T_Model = "characters/models/tm_leet/tm_leet_varianth.vmdl",
+            CT_Model = "characters/models/ctm_swat/ctm_swat_variantg.vmdl",
             Description = "Support specialist with healing abilities"
         },
         ["Recon"] = new ClassAttributeConfig
@@ -128,6 +134,8 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             Armor = 80,
             HasHelmet = false,
             Speed = 0.95f,
+            T_Model = "characters/models/tm_leet/tm_leet_variantj.vmdl",
+            CT_Model = "characters/models/ctm_st6/ctm_st6_variante.vmdl",
             Description = "Long-range specialist with sniper rifles"
         }
     };
@@ -238,5 +246,7 @@ public class ClassAttributeConfig
     [JsonPropertyName("Armor")] public int Armor { get; set; } = 0;
     [JsonPropertyName("HasHelmet")] public bool HasHelmet { get; set; } = false;
     [JsonPropertyName("Speed")] public float Speed { get; set; } = 1.0f;
+    [JsonPropertyName("T_Model")] public string T_Model { get; set; } = "";
+    [JsonPropertyName("CT_Model")] public string CT_Model { get; set; } = "";
     [JsonPropertyName("Description")] public string Description { get; set; } = "";
 }

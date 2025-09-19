@@ -5,6 +5,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
+using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Memory;
@@ -33,6 +34,7 @@ namespace SLAYER_CaptureTheFlag;
 public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
 {
     public MatchStatusInfo MatchStatus = new MatchStatusInfo();
+    public Timer? MatchStatusTimer = null;
     public enum MatchStatusType
     {
         Starting,
@@ -42,6 +44,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public class PoseEntityInfo
     {
+        public string PlayerName { get; set; } = "";
         public CDynamicProp? PoseEntity { get; set; } = null;
         public CPointWorldText? NameTextEntity { get; set; } = null;
         public List<string> Animations { get; set; } = new List<string>();
@@ -49,7 +52,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public class MatchStatusInfo
     {
-        public MatchStatusType Status { get; set; } = MatchStatusType.Ongoing;
+        public MatchStatusType Status { get; set; } = MatchStatusType.Starting;
         public int TerroristTickets { get; set; } = 800;
         public int CounterTerroristTickets { get; set; } = 800;
         public float MatchStartTime { get; set; } = 0;
@@ -60,7 +63,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public (Vector, QAngle) MatchEndCameraPosition { get; set; } = (new Vector(0, 0, 0), new QAngle(0, 0, 0));
         public PlayerSquad? BestSquad { get; set; } = null;
         public Dictionary<PlayerSquad, List<PoseEntityInfo>> PoseEntities { get; set; } = new Dictionary<PlayerSquad, List<PoseEntityInfo>>();
-        public Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText)> PlayerLookingAtSquadPoseEntities { get; set; } = new Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText)>();
+        public Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText?)> PlayerLookingAtSquadPoseEntities { get; set; } = new Dictionary<CCSPlayerController, (PlayerSquad, CPointWorldText?)>();
     }
     public float GetRemainingTeamTicketsPercentage(int team)
     {
@@ -87,18 +90,59 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
 
     }
+    public void PrepareMatchStart()
+    {
+        MatchStatus = new MatchStatusInfo(); // Reset match status
+        MatchStatus.Status = MatchStatusType.Starting;
+        MatchStatus.MatchStartTime = Server.CurrentTime + Config.MatchStartTime;
+        MatchStatus.MatchEndTime = 0f;
+        ClearAllCenterMessageLines(); // Clear any existing center message lines
+        MatchStatus.MatchEndCameraPosition = MatchEndCameraPosition; // Save the end camera position for later use
+        var cameraProp = CreateEndMatchCameraProp(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // A global camera prop to be used for all players
+        MatchStatus.PlayersMatchEndCamera = cameraProp; // Save the camera prop for later use
+        if (MatchStatusTimer != null) MatchStatusTimer.Kill(); // Kill existing timer if any
+        MatchStatusTimer = AddTimer(1.0f, () =>
+        {
+            if (Server.CurrentTime >= MatchStatus.MatchStartTime && MatchStatus.Status != MatchStatusType.Ongoing) // If the match start time has been reached, start the match
+            {
+                MatchStatus.Status = MatchStatusType.Ongoing;
+                Server.ExecuteCommand("mp_restartgame 1"); // Start the match by restarting the game with 1 second delay
+                if (MatchStatusTimer != null) MatchStatusTimer.Kill();
+            }
+            else if (MatchStatus.Status == MatchStatusType.Starting)
+            {
+                float remainingTime = MatchStatus.MatchStartTime - Server.CurrentTime;
+                int secondsLeft = (int)Math.Ceiling(remainingTime);
+                
+                // Announce at specific intervals
+                if (secondsLeft > 0 && (secondsLeft % 15 == 0 || secondsLeft <= 5))
+                {
+                    Server.PrintToChatAll($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
+                }
+            }
+            
+        }, TimerFlags.REPEAT);
+    }
     public void StartMatch()
     {
+        ResetMatchStatusStuff();
         MatchStatus.Status = MatchStatusType.Ongoing;
         MatchStatus.MatchStartTime = Server.CurrentTime;
-        MatchStatus.MatchEndTime = 0f;
+
         // Set Team Tickets
         MatchStatus.TerroristTickets = Config.TerroristTeamTickets;
         MatchStatus.CounterTerroristTickets = Config.CTerroristTeamTickets;
         // Set Team Win score to tickets (A clever way to show tickets in scoreboard)
         SetTeamScore(2, Config.TerroristTeamTickets);
         SetTeamScore(3, Config.CTerroristTeamTickets);
-
+    }
+    public void ResetMatchStatusStuff()
+    {
+        if(MatchStatus == null) MatchStatus = new MatchStatusInfo();
+        if (MatchStatusTimer != null) MatchStatusTimer.Kill(); // Kill existing timer if any
+        MatchStatus.Status = MatchStatusType.Starting;
+        MatchStatus.MatchStartTime = 0f;
+        MatchStatus.MatchEndTime = 0f;
         MatchStatus.IsLowTicketsSoundPlaying = false;
         MatchStatus.LowTicketsSoundEventGuid.Clear();
         if (MatchStatus.PlayersMatchEndCamera != null && MatchStatus.PlayersMatchEndCamera.IsValid)
@@ -110,10 +154,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         ClearMatchEndPlayerPoseEntities();
         foreach (var text in MatchStatus.PlayerLookingAtSquadPoseEntities.Values)
         {
-            if(text.Item2 != null && text.Item2.IsValid) text.Item2.Remove(); // Remove all world text entities
+            if (text.Item2 != null && text.Item2.IsValid) text.Item2.Remove(); // Remove all world text entities
         }
         MatchStatus.PlayerLookingAtSquadPoseEntities.Clear(); // Clear the player pose entities
-
     }
     public void EndMatch()
     {
@@ -182,19 +225,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         ClearAllCenterMessageLines(); // Clear any existing center message lines
         UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner} Win</font>", recipientFilter, -1, true);
         MatchStatus.BestSquad = GetBestSquad();
-         // Calculate text position in front of camera
+        // Calculate text position in front of camera
+        var pos = CalculateTextPosition();
         var color = MatchStatus.BestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
-        var position = new Vector(MatchStatus.MatchEndCameraPosition.Item1.X, MatchStatus.MatchEndCameraPosition.Item1.Y, MatchStatus.MatchEndCameraPosition.Item1.Z + 30f);
-        position = GetFrontPosition(position, MatchStatus.MatchEndCameraPosition.Item2, 10f); // Move Camera position slightly in front
-        var cameraZoomedOutPos = GetFrontPosition(MatchStatus.MatchEndCameraPosition.Item1, MatchStatus.MatchEndCameraPosition.Item2, -70f);
-        cameraZoomedOutPos = new Vector(cameraZoomedOutPos.X, cameraZoomedOutPos.Y, cameraZoomedOutPos.Z - 64f); // Lower the position to be at ground level
-        var faceCameraAngles = GetLookAtAngle(position, cameraZoomedOutPos);// Make entity face the camera
-        faceCameraAngles = new QAngle(0, faceCameraAngles.Y+90, 90); // Rotate text to face the camera properly
-        var worldtext = CreateWorldText($"Best Squad:\n{MatchStatus.BestSquad.SquadName}", position, faceCameraAngles, 30, color, "Orbitron", true);
+        var worldtext = CreateWorldText($"Best Squad:\n{MatchStatus.BestSquad.SquadName}", pos.Item1, pos.Item2, 30, color, "Orbitron", true);
         if (MatchStatus.BestSquad != null)
         {
             // Create player pose entities for the best squad, and If the best squad is the winning team, play victory animations, else play defeat animations
-            MatchStatus.PoseEntities[MatchStatus.BestSquad] = CreateMatchEndPlayerPoseEntities(MatchStatus.BestSquad, MatchStatus.BestSquad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin);
+            MatchStatus.PoseEntities[MatchStatus.BestSquad] = CreateMatchEndPlayerPoseEntities(MatchStatus.BestSquad, MatchStatus.BestSquad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin, null);
             // Assign the world text entity to all players in the best squad
             foreach (var player in players)
             {
@@ -222,8 +260,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 var squad = GetPlayerSquad(player);
                 if (squad != null && !MatchStatus.PoseEntities.ContainsKey(squad))
                 {
-                    MatchStatus.PoseEntities[squad] = CreateMatchEndPlayerPoseEntities(squad, squad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin);
-                    var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2 == null ? CreateWorldText($"Your Squad:\n{squad.SquadName}", position, faceCameraAngles, 30, color, "Orbitron", true) : MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
+                    MatchStatus.PoseEntities[squad] = CreateMatchEndPlayerPoseEntities(squad, squad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin, null);
+                    var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2 == null ? CreateWorldText($"Your Squad:\n{squad.SquadName}", pos.Item1, pos.Item2, 30, color, "Orbitron", true) : MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
                     UpdateWorldText(worldtext, $"Your Squad:\n{squad.SquadName}", squad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
                     MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (squad, worldtext);
                 }
@@ -260,7 +298,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public void MatchStatusOnTick()
     {
-        if (MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
+        if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
         {
             // We teleport the match end cameras to match end position
             if (MatchStatus.PlayersMatchEndCamera != null && MatchStatus.PlayersMatchEndCamera.IsValid)
@@ -274,6 +312,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
             }
         }
+    }
+    public (Vector, QAngle) CalculateTextPosition()
+    {
+        var position = new Vector(MatchStatus.MatchEndCameraPosition.Item1.X, MatchStatus.MatchEndCameraPosition.Item1.Y, MatchStatus.MatchEndCameraPosition.Item1.Z + 30f);
+        position = GetFrontPosition(position, MatchStatus.MatchEndCameraPosition.Item2, 10f); // Move Camera position slightly in front
+        var cameraZoomedOutPos = GetFrontPosition(MatchStatus.MatchEndCameraPosition.Item1, MatchStatus.MatchEndCameraPosition.Item2, -70f);
+        cameraZoomedOutPos = new Vector(cameraZoomedOutPos.X, cameraZoomedOutPos.Y, cameraZoomedOutPos.Z - 64f); // Lower the position to be at ground level
+        var faceCameraAngles = GetLookAtAngle(position, cameraZoomedOutPos);// Make entity face the camera
+        faceCameraAngles = new QAngle(0, faceCameraAngles.Y + 90, 90); // Rotate text to face the camera properly
+        return (position, faceCameraAngles);
     }
 
     public void DecreaseTeamTickets(int team, int tickets)
@@ -366,11 +414,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return _cameraProp;
     }
-    public List<PoseEntityInfo> CreateMatchEndPlayerPoseEntities(PlayerSquad playerSquad, bool Victory = true)
+    public List<PoseEntityInfo> CreateMatchEndPlayerPoseEntities(PlayerSquad playerSquad, bool Victory = true, CCSPlayerController? includePlayer = null)
     {
         if (playerSquad == null) return null;
 
-        if(GetSquadPoseEntities(playerSquad) != null && GetSquadPoseEntities(playerSquad).Count > 0)
+        if(GetSquadPoseEntities(playerSquad) != null && GetSquadPoseEntities(playerSquad).Count > 0 && includePlayer == null)
         {
             // If the squad pose entities already exist, delete them first
             ClearMatchEndPlayerSquadPoseEntities(playerSquad);
@@ -385,6 +433,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         int memberIndex = 0;
         foreach (var member in playerSquad.Members.Keys.Where(m => m != null && m.IsValid))
         {
+            if (includePlayer != null && member != includePlayer) { memberIndex++; continue; } // If includePlayer is specified, only create pose entity for that player
+
             // Position entities in a staggered formation like Battlefield
             var entityPosition = CalculateBattlefieldPosition(cameraPosition, cameraAngles, memberIndex, playerSquad.Members.Count);
             var cameraZoomedOutPos = GetFrontPosition(MatchStatus.MatchEndCameraPosition.Item1, MatchStatus.MatchEndCameraPosition.Item2, -70f);
@@ -400,17 +450,23 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var positionInFront = GetFrontPosition(entityPosition, faceCameraAngles, 20f);
             var textEntityPosition = new Vector(positionInFront.X, positionInFront.Y, positionInFront.Z + 40f);
             var color = member.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
-            var message = $" {PlayerStatuses[member].DefaultName} " +
-                $"\nKills: {PlayerStatuses[member].TotalKills}\nDeaths: {PlayerStatuses[member].TotalDeaths}\nAssists: {PlayerStatuses[member].TotalAssists}\nRevives: {PlayerStatuses[member].TotalRevives}";
+            var message = $"{PlayerStatuses[member].DefaultName} ({PlayerStatuses[member].ClassType})\nKills: {PlayerStatuses[member].TotalKills}\nDeaths: {PlayerStatuses[member].TotalDeaths}\nAssists: {PlayerStatuses[member].TotalAssists}\nRevives: {PlayerStatuses[member].TotalRevives}";
+            if (includePlayer != null) message = $"{PlayerStatuses[member].DefaultName} ({PlayerStatuses[member].ClassType})";
             var NameTextEntity = CreateWorldText(message, textEntityPosition, new QAngle(0, faceCameraAngles.Y+90, 90), 30, color, "Orbitron", true);
 
             var poseInfo = new PoseEntityInfo
             {
+                PlayerName = PlayerStatuses[member].DefaultName,
                 PoseEntity = Entity,
                 NameTextEntity = NameTextEntity,
                 Animations = animations,
                 CurrentAnimation = animations[0]
             };
+            if (includePlayer != null)
+            {
+                if (!MatchStatus.PoseEntities.ContainsKey(playerSquad)) MatchStatus.PoseEntities[playerSquad] = new List<PoseEntityInfo>();
+                MatchStatus.PoseEntities[playerSquad].Add(poseInfo);
+            }
             poseEntities.Add(poseInfo);
             
             memberIndex++;
