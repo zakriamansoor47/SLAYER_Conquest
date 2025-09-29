@@ -129,6 +129,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 PlayerStatuses[player].ClassType = randomClass;
                 config = _classConfigs[randomClass];
                 config.model = player.TeamNum == 2 ? Config.ClassAttributes[randomClass.ToString()].T_Model : Config.ClassAttributes[randomClass.ToString()].CT_Model;
+                var squad = GetPlayerSquad(player);
+                if (squad != null && squad.Members.ContainsKey(player))
+                {
+                    squad.Members[player] = randomClass; // Update the player's class in their squad
+                }
             }
         }
         // If the player is alive, apply the class configuration
@@ -137,6 +142,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             player.PlayerPawn!.Value!?.ItemServices?.As<CCSPlayer_ItemServices>().RemoveWeapons(); // Remove all weapons
             // Set health and armor
             player.PlayerPawn.Value.Health = config.Health;
+            player.PlayerPawn.Value.MaxHealth = config.Health;
             if (config.HasHelmet) player.GiveNamedItem("item_assaultsuit"); // Give helmet 
             player.PlayerPawn.Value.ArmorValue = config.Armor;
             // Set speed
@@ -230,6 +236,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             squad.Members[player] = selectedClass; // Update the player's class in their squad
         }
+        InitializePlayerSpecialItem(player, PlayerStatuses[player].ClassType.ToString()); // Initialize the player's special item based on their class
+
         if (MatchStatus.Status == MatchStatusType.Starting)
         {
             ApplyPlayerClass(player, false); // Apply the class immediately

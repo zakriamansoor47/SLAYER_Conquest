@@ -80,10 +80,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     PlayerStatuses[player].DefaultName = player.PlayerName; // Store the default name
                 }
                 
-                Name = Name + $" ({Enum.GetName(GetPlayerSquad(player).Members[player])})";
+                Name = Name + $" ({Enum.GetName(PlayerStatuses[player].ClassType)})";
                 SetName(player, Name);
             }
-            else if (ContainsPlayerClassName.Count == 1 && ContainsPlayerClassName[0] != $"{Enum.GetName(GetPlayerSquad(player).Members[player])}") // If only one class type is found and it is different from the current class type
+            else if (ContainsPlayerClassName.Count == 1 && ContainsPlayerClassName[0] != $"{Enum.GetName(PlayerStatuses[player].ClassType)}") // If only one class type is found and it is different from the current class type
             {
                 var Name = player.PlayerName;
                 Name = Name.Replace($" ({ContainsPlayerClassName[0]})", "");
@@ -202,6 +202,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var squadsToConsider = teamNum == 0 ? PlayerSquads : PlayerSquads.Where(s => s.TeamNum == teamNum);
         
         return squadsToConsider.OrderByDescending(s => s.TotalKills + s.TotalRevives + s.TotalAssists).FirstOrDefault();
+    }
+    public List<CCSPlayerController> GetAliveSquadMembers(PlayerSquad squad)
+    {
+        return squad.Members.Keys.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE).ToList();
     }
     public bool IsPlayerSquadmate(CCSPlayerController player, CCSPlayerController player2)
     {

@@ -8,21 +8,24 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
     [JsonPropertyName("FlagCaptureTime")] public float FlagCaptureTime { get; set; } = 10;
     [JsonPropertyName("DefaultPlayerClass")] public string DefaultPlayerClass { get; set; } = "Assault";
     [JsonPropertyName("TerroristTeamColor")] public string TerroristTeamColor { get; set; } = "orange";
-    [JsonPropertyName("CTerroristTeamColor")] public string CTerroristTeamColor { get; set; } = "royalblue"; // royal blue
+    [JsonPropertyName("CTerroristTeamColor")] public string CTerroristTeamColor { get; set; } = "royalblue";
     [JsonPropertyName("FocusTheDeployCameraOnDeployPosition")] public bool FocusTheDeployCameraOnDeployPosition { get; set; } = false;
-    [JsonPropertyName("NoBlock")] public bool NoBlock { get; set; } = false;
+    [JsonPropertyName("TeamNoBlock")] public bool TeamNoBlock { get; set; } = false;
     [JsonPropertyName("ShowPlayerClassInPlayerName")] public bool ShowPlayerClassInPlayerName { get; set; } = true;
     [JsonPropertyName("ShowPlayerSquadNameInPlayerClan")] public bool ShowPlayerSquadNameInPlayerClan { get; set; } = true;
     [JsonPropertyName("SetGlowOnSquadMembers")] public bool SetGlowOnSquadMembers { get; set; } = true;
     [JsonPropertyName("ShowKillInfoInCenter")] public bool ShowKillInfoInCenter { get; set; } = true;
+    [JsonPropertyName("PlayerDropAmmoPouchOnDeath")] public bool PlayerDropAmmoPouchOnDeath { get; set; } = true;
     [JsonPropertyName("PlayKillSounds")] public bool PlayKillSounds { get; set; } = true;
     [JsonPropertyName("PlayMatchEndingSound")] public bool PlayMatchEndingSound { get; set; } = true;
     [JsonPropertyName("PlayVictorySound")] public bool PlayVictorySound { get; set; } = true;
     [JsonPropertyName("PlayDefeatSound")] public bool PlayDefeatSound { get; set; } = true;
     [JsonPropertyName("SoundsVolume")] public float SoundsVolume { get; set; } = 1f;
     [JsonPropertyName("ShowKillInfoTime")] public float ShowKillInfoTime { get; set; } = 3f;
+    [JsonPropertyName("DroppedAmmoPouchRemoveDelay")] public float DroppedAmmoPouchRemoveDelay { get; set; } = 10f;
     [JsonPropertyName("TerroristTeamTickets")] public int TerroristTeamTickets { get; set; } = 800;
     [JsonPropertyName("CTerroristTeamTickets")] public int CTerroristTeamTickets { get; set; } = 800;
+    [JsonPropertyName("PlayerSprintSpeedBoost")] public float PlayerSprintSpeedBoost { get; set; } = 0.3f;
     [JsonPropertyName("SquadmateReviveTime")] public float SquadmateReviveTime { get; set; } = 4f;
     [JsonPropertyName("CombatTime")] public float CombatTime { get; set; } = 5f;
     [JsonPropertyName("MedicReviveTime")] public float MedicReviveTime { get; set; } = 1.5f;
@@ -33,7 +36,7 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
     [JsonPropertyName("PlayerGetRevivedTimer")] public float PlayerGetRevivedTimer { get; set; } = 30f;
     [JsonPropertyName("PlayerRedeployDelay")] public float PlayerRedeployDelay { get; set; } = 5f;
     [JsonPropertyName("PlayerBotRedeployDelay")] public float PlayerBotRedeployDelay { get; set; } = 10f;
-    [JsonPropertyName("RemoveDropWeaponAfterDeath")] public float RemoveDropWeaponAfterDeath { get; set; } = 15f;
+    [JsonPropertyName("RemoveDropWeaponAfterDeath")] public float RemoveDropWeaponAfterDeath { get; set; } = 10f;
     [JsonPropertyName("AllowThirdPerson")] public bool AllowThirdPerson { get; set; } = true;
     [JsonPropertyName("PlayerTPCameraXYOffset")] public float PlayerTPCameraXYOffset { get; set; } = -30; // prop camera XY offset
     [JsonPropertyName("PlayerTPCameraZOffset")] public float PlayerTPCameraZOffset { get; set; } = 75; // Prop camera Z offset
@@ -137,6 +140,75 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             T_Model = "characters/models/tm_leet/tm_leet_variantj.vmdl",
             CT_Model = "characters/models/ctm_st6/ctm_st6_variante.vmdl",
             Description = "Long-range specialist with sniper rifles"
+        }
+    };
+    [JsonPropertyName("SpecialItems")]
+    public Dictionary<string, SpecialItemConfig> SpecialItems { get; set; } = new()
+    {
+        ["Claymore"] = new()
+        {
+            Name = "Claymore",
+            MaxCount = 2,
+            Range = 150,
+            Cooldown = 0f,
+            PlayerPickupCooldown = 0f,
+            RegenerateTime = -1f,
+            Description = "Explosive mine that triggers on enemy proximity",
+            AllowMultipleDeployments = true
+        },
+        ["Medkit"] = new()
+        {
+            Name = "Medkit",
+            MaxCount = 1,
+            Range = 100,
+            Cooldown = 30f,
+            PlayerPickupCooldown = 30f,
+            RegenerateTime = -1f,
+            Description = "Restores health to full",
+            AllowMultipleDeployments = false
+        },
+        ["AmmoBox"] = new()
+        {
+            Name = "AmmoBox",
+            MaxCount = 1,
+            Range = 100,
+            Cooldown = 30f,
+            PlayerPickupCooldown = 30f,
+            RegenerateTime = -1f,
+            Description = "Replenishes ammunition",
+            AllowMultipleDeployments = false
+        },
+        ["MedicPouch"] = new()
+        {
+            Name = "MedicPouch",
+            MaxCount = -1,
+            Range = 200,
+            Cooldown = 0f,
+            PlayerPickupCooldown = 5f,
+            RegenerateTime = 0f,
+            Description = "Heals nearby teammates",
+            AllowMultipleDeployments = false
+        },
+        ["AmmoPouch"] = new()
+        {
+            Name = "AmmoPouch",
+            MaxCount = -1,
+            Range = 200,
+            Cooldown = 0f,
+            PlayerPickupCooldown = 5f,
+            RegenerateTime = 0f,
+            Description = "Gives ammunition to nearby teammates",
+            AllowMultipleDeployments = false
+        },
+        ["ReconRadio"] = new()
+        {
+            Name = "ReconRadio",
+            MaxCount = 1,
+            Cooldown = 0f,
+            PlayerPickupCooldown = 0f,
+            RegenerateTime = -1f,
+            Description = "Deploy spawn point for your squad",
+            AllowMultipleDeployments = false
         }
     };
     [JsonPropertyName("MapList")] public List<string> MapList { get; set; } = new List<string>
@@ -250,3 +322,15 @@ public class ClassAttributeConfig
     [JsonPropertyName("CT_Model")] public string CT_Model { get; set; } = "";
     [JsonPropertyName("Description")] public string Description { get; set; } = "";
 }
+public class SpecialItemConfig
+{
+    public string Name { get; set; } = "";
+    public int MaxCount { get; set; } = 1;
+    public int Range { get; set; } = 100;
+    public float Cooldown { get; set; } = 10f;
+    public float PlayerPickupCooldown { get; set; } = 30f;
+    public float RegenerateTime { get; set; } = -1f;
+    public string Description { get; set; } = "";
+    public bool AllowMultipleDeployments { get; set; } = false;
+}
+

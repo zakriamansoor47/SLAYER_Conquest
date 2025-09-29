@@ -84,8 +84,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             manifest.AddResource("models/slayer/claymore/claymore.vmdl");
             manifest.AddResource("models/slayer/medic_kit/medic_kit.vmdl");
             manifest.AddResource("models/slayer/medic_pouch/medic_pouch.vmdl");
+            manifest.AddResource("models/slayer/artillery_shell/artillery_shell.vmdl");
+            manifest.AddResource("models/slayer/fateh_missile/fateh_missile.vmdl");
             manifest.AddResource("models/slayer/radio/radio.vmdl");
+            manifest.AddResource("panorama/images/icons/equipment/claymore.vsvg");
+            manifest.AddResource("panorama/images/icons/bf_kill.vsvg");
+            manifest.AddResource("panorama/images/icons/bf_headshot.vsvg");
             manifest.AddResource("soundevents/slayer_capturetheflag.vsndevts");
+            manifest.AddResource("particles/explosions_fx/explosion_hegrenade.vpcf");
+            manifest.AddResource("particles/explosions_fx/explosion_c4_short.vpcf");
+            manifest.AddResource("particles/overhead_icon_fx/player_ping.vpcf");
             foreach (var playerClass in Config.ClassAttributes.Values)
             {
                 if (!string.IsNullOrEmpty(playerClass.T_Model))
@@ -130,7 +138,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
                 foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value != null && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
                 {
-                    if (Config.AllowThirdPerson && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Attack2")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
+                    if (Config.AllowThirdPerson && player.PlayerPawn.Value.MovementServices.ButtonDoublePressed == ParseButtonByName("Inspect") && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
                     {
                         if (ThirdPerson.ContainsKey(player)) // If the player is in third-person mode, switch to first-person
                         {
@@ -144,8 +152,44 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                             ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
                             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}third-person {ChatColors.Gold}mode.");
                         }
-                        AddTimer(0.5f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
+                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
                         PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                    }
+                    if (player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Use")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and use buttons to use special item
+                    {
+                        var playerClass = GetPlayerClassType(player);
+                        if (playerClass == PlayerClassType.Assault) TryUseSpecialItem(player, "Claymore");
+                        else if (playerClass == PlayerClassType.Engineer) TryUseSpecialItem(player, "AmmoBox");
+                        else if (playerClass == PlayerClassType.Medic) TryUseSpecialItem(player, "Medkit");
+                        else if (playerClass == PlayerClassType.Recon) TryUseSpecialItem(player, "ReconRadio");
+                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
+                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                    }
+                    else if (player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Use")) && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and use buttons to use special item
+                    {
+                        var playerClass = GetPlayerClassType(player);
+                        if (playerClass == PlayerClassType.Engineer) TryUseSpecialItem(player, "AmmoPouch");
+                        else if (playerClass == PlayerClassType.Medic) TryUseSpecialItem(player, "MedicPouch");
+                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
+                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                    }
+                    Vector movement = player.PlayerPawn.Value.MovementServices!.LastMovementImpulses;
+                    if (player.PlayerPawn.Value.MovementServices.ButtonDoublePressed == ParseButtonByName("Forward") && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) && movement.X == 1 && PlayerStatuses.ContainsKey(player) && !PlayerStatuses[player].IsSprinting) // player double pressed speed button and also moving forward
+                    {
+
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You are now {ChatColors.Lime}Sprinting{ChatColors.Gold}!");
+                        player.PlayerPawn.Value.VelocityModifier += Config.PlayerSprintSpeedBoost;// Increase speed by 150%
+                        PlayerStatuses[player].IsSprinting = true; // Set the player is sprinting to true
+                    }
+                    else if ((!player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Forward")) || player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) || player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) || movement.X == -1 || (movement.X != 1 && movement.Y != 0)) && PlayerStatuses.ContainsKey(player) && PlayerStatuses[player].IsSprinting) // player is not pressing speed button or moving backward or moving sideways
+                    {
+                        var playerClass = GetPlayerClassType(player);
+                        var config = _classConfigs[playerClass];
+                        if (player.PlayerPawn.Value.VelocityModifier > config.Speed)
+                        {
+                            player.PlayerPawn.Value.VelocityModifier = config.Speed; // Reset speed back to normal if the player is not pressing the speed button
+                            PlayerStatuses[player].IsSprinting = false; // Reset the player is sprinting if the player is not pressing the speed button
+                        }
                     }
                 }
             }
@@ -158,6 +202,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 // If no player is found or the player is invalid, continue
                 if (player == null || !player.IsValid) continue;
 
+                foreach (var ammoPouch in DroppedAmmoPouches.Where(a => a != null && a.IsValid && a.DeployTeam != player.TeamNum))
+                {
+                    // If the ammo pouch is not for this player's team, hide it from them
+                    info.TransmitEntities.Remove(ammoPouch.Entity);
+                    foreach (var beam in ammoPouch.BeaconBeams)
+                    {
+                        if (beam != null && beam.IsValid)
+                            info.TransmitEntities.Remove(beam);
+                    }
+                }
                 // If the match has starting/ended, hide all players from everyone
                 if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
                 {
@@ -166,7 +220,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     {
                         info.TransmitEntities.Remove(p.PlayerPawn.Value.Index);
                     }
-                   
+
                     if (MatchStatus.PlayerLookingAtSquadPoseEntities.ContainsKey(player))
                     {
                         var squad = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item1;
@@ -267,7 +321,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Server.ExecuteCommand($"mp_ignore_round_win_conditions 1");
             Server.ExecuteCommand($"mp_spawnprotectiontime {Config.PlayerSpawnProtectionTime}");
             Server.ExecuteCommand($"mp_buytime 0"); // Disable buy zone
-            if(Config.NoBlock) Server.ExecuteCommand($"mp_solid_teammates 0");
+            if(Config.TeamNoBlock) Server.ExecuteCommand($"mp_solid_teammates 0");
             else Server.ExecuteCommand($"mp_solid_teammates 1");
 
 
@@ -277,11 +331,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             fileHandler.LoadFlagPositions();
 
-            if (MatchStatus.Status == MatchStatusType.Starting)
+            /*if (MatchStatus.Status == MatchStatusType.Starting)
             {
                 PrepareMatchStart(); // Prepare for match start (reset tickets, squads, etc.)
                 return HookResult.Continue;
-            }
+            }*/
 
             StartMatch(); // Start the match immediately if not already starting
 
@@ -307,6 +361,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             // Update player states every 0.5 seconds
             UpdatePlayerStatesTimer = AddTimer(0.5f, () =>
             {
+                UpdateSpecialItemsRegeneration(); // Regenerate special items if applicable
                 UpdateReviveStatus(); // Update revive status every second
                 foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
                 {
@@ -351,6 +406,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     }
                 }
             }, TimerFlags.REPEAT);
+
+            // Reset all players' special items
+            ResetAllPlayersSpecialItems();
 
             return HookResult.Continue;
         });
@@ -398,6 +456,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 player!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
                 Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
             }
+            // Reset special items on spawn
+            ResetPlayerSpecialItemsOnSpawn(player, true, true, false);
+            InitializePlayerSpecialItem(player, PlayerStatuses[player].ClassType.ToString(), false); // Initialize the player's special item based on their class
 
             // Apply class with slight delay to ensure player is fully spawned
             AddTimer(0.1f, () =>
@@ -413,7 +474,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     PlayerStatuses[player].Squad = squad;
                 }
             });
-            if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
+            /*if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
             {
                 AddTimer(0.2f, () =>
                 {
@@ -439,7 +500,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     int secondsLeft = (int)Math.Ceiling(remainingTime);
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
                 });
-            }
+            }*/
             
             // Set ThirdPerson mode if enabled and player is not a bot
             if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
@@ -472,11 +533,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if(MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
 
             var player = @event.Userid;
-            var weapon = @event.Weapon;
             var attacker = @event.Attacker;
             var assister = @event.Assister;
 
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
+
 
             // Update squads and player stats
             if (PlayerStatuses.ContainsKey(player))
@@ -484,7 +545,18 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 PlayerStatuses[player].Status = PlayerStatusType.Injured;
                 PlayerStatuses[player].TotalDeaths += 1;
                 var playerSquad = GetPlayerSquad(player);
-                if (playerSquad != null) playerSquad.TotalDeaths += 1; // Increase squad total deaths by 1
+                if (playerSquad != null)
+                {
+                    var weaponName = @event.Weapon;
+                    playerSquad.TotalDeaths += 1; // Increase squad total deaths by 1
+                    if (PlayerStatuses[player].LastKilledWith == "Claymore") @event.Weapon = "Claymore"; // Show claymore as the killing weapon if the player was killed by claymore
+                    var remainingMembers = GetAliveSquadMembers(playerSquad);
+                    if (remainingMembers.Count <= 0)
+                    {
+                        @event.Wipe = 1;
+                    }
+                    PlayerStatuses[player].LastKilledWith = weaponName;
+                }
             }
             if (assister != null && assister.IsValid && assister.TeamNum != player.TeamNum)
             {
@@ -503,6 +575,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             DeadPlayersPosition[player] = (new Vector(player.Pawn.Value.AbsOrigin!.X, player.Pawn.Value.AbsOrigin!.Y, player.Pawn.Value.AbsOrigin!.Z + 10f), CreateNewQAngle(player.PlayerPawn.Value.AbsRotation!)); // Store the player's position and angle
             SetPlayerReviveEntry(player); // Set the player revive entry
             SetGlowOnPlayerWhoRequestingMedic(player);
+            DropAmmoPouch(player); // Drop ammo pouch
             AddTimer(0.5f, () => RequestRevive(player)); // Auto Request Revive
 
             // Show kill info in center of the screen
@@ -510,10 +583,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 var PlayerName = player.PlayerName;
                 if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
-                var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
+                //var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
+                var KillSymbol = @event.Headshot == true ? "<img src='s2r://panorama/images/icons/bf_headshot.vsvg' />" : "<img src='s2r://panorama/images/icons/bf_kill.vsvg' />";
                 if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
                 else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
-                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(@event.Weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
             }
 
             // Play kill sound to the attacker
@@ -566,7 +640,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 DeployBot(player);
             }
             return HookResult.Continue;
-        });
+        }, HookMode.Pre);
 
         // Team Switch Control
         AddCommandListener("jointeam", (player, commandInfo) =>
@@ -616,6 +690,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     private void ClearStuff()
     {
+        ResetAllPlayersSpecialItems();
         AvailableRevives.Clear();
         ThirdPerson.Clear();
         Flagpoles?.Clear();
@@ -685,9 +760,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (PlayerDeployPositions.ContainsKey(player))
             PlayerDeployPositions.Remove(player);
+            
 
         // Clean up squad data
         RemovePlayerFromSquad(player);
+        CleanupPlayerDeployables(player);
 
 
         // Clean up revive data

@@ -2,6 +2,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Cvars;
 using System.Drawing;
@@ -13,6 +14,7 @@ using CS2TraceRay.Class;
 using CS2TraceRay.Enum;
 using CS2TraceRay.Struct;
 using CounterStrikeSharp.API.Modules.Timers;
+using Serilog;
 
 // Used these to remove compile warnings
 #pragma warning disable CS8600
@@ -69,6 +71,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     private float CalculateDistanceBetween(Vector point1, Vector point2)
     {
+        if (point1 == null || point2 == null) return 0;
         float dx = point2.X - point1.X;
         float dy = point2.Y - point1.Y;
         float dz = point2.Z - point1.Z;
@@ -115,6 +118,176 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
         catch { }
     }
+    [StructLayout(LayoutKind.Explicit)]
+    public struct CAttackerInfo
+    {
+        public CAttackerInfo(CEntityInstance attacker)
+        {
+            NeedInit = false;
+            IsWorld = true;
+            Attacker = attacker.EntityHandle.Raw;
+            if (attacker.DesignerName != "cs_player_controller") return;
+            
+            var controller = attacker.As<CCSPlayerController>();
+            IsWorld = false;
+            IsPawn = true;
+            AttackerUserId = (ushort)(controller.UserId ?? 0xFFFF);
+            TeamNum = controller.TeamNum;
+            TeamChecked = controller.TeamNum;
+        }
+        
+        [FieldOffset(0x0)] public bool NeedInit = true;
+        [FieldOffset(0x1)] public bool IsPawn = false;
+        [FieldOffset(0x2)] public bool IsWorld = false;
+        
+        [FieldOffset(0x4)]
+        public UInt32 Attacker;
+        
+        [FieldOffset(0x8)]
+        public ushort AttackerUserId;
+        
+        [FieldOffset(0x0C)] public int TeamChecked = -1;
+        [FieldOffset(0x10)] public int TeamNum = -1;
+    }
+    public void TakeDamage(CCSPlayerController? client, CCSPlayerController? attacker = null, int damage = 1)
+    {
+        if (client == null || !client.IsValid || client.Connected != PlayerConnectedState.PlayerConnected ) return;
+        var size = Schema.GetClassSize("CTakeDamageInfo");
+        var ptr = Marshal.AllocHGlobal(size);
+
+        for (var i = 0; i < size; i++)
+            Marshal.WriteByte(ptr, i, 0);
+
+        var damageInfo = new CTakeDamageInfo(ptr);
+        CAttackerInfo attackerInfo;
+
+        if (attacker == null)
+            attackerInfo = new CAttackerInfo(client);
+        else
+            attackerInfo = new CAttackerInfo(attacker);
+
+        Marshal.StructureToPtr(attackerInfo, new IntPtr(ptr.ToInt64() + 0x98), false);
+
+        if (attacker == null)
+        {
+            Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hInflictor", client.Pawn.Raw);
+            Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hAttacker", client.Pawn.Raw);
+        }
+        else
+        {
+            Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hInflictor", attacker.Pawn.Raw);
+            Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hAttacker", attacker.Pawn.Raw);
+        }
+
+        damageInfo.Damage = damage * 2;
+
+        if (client.Pawn.Value == null) return;
+
+        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Invoke(client.Pawn.Value, damageInfo);
+        Marshal.FreeHGlobal(ptr);
+    }
+    public static string heGrenadeProjectileWindowsSig = @"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 48 83 EC ? 48 8B 6C 24 ? 49 8B F8 4C 8B C2 0F 29 74 24";
+
+    public static string heGrenadeProjectileLinuxSig = @"55 4C 89 C1 48 89 E5 41 57 49 89 FF 41 56 49 89";
+
+    public static string heGrenadeProjectileSig = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? heGrenadeProjectileLinuxSig : heGrenadeProjectileWindowsSig;
+    public static MemoryFunctionWithReturn<IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, int> CHEGrenadeProjectile_CreateFunc = new(heGrenadeProjectileSig);
+
+    public static nint CreateHeGrenade(Vector position, QAngle angle, Vector velocity, CCSPlayerController player)
+    {
+        return CHEGrenadeProjectile_CreateFunc.Invoke(
+            position.Handle,
+            angle.Handle,
+            velocity.Handle,
+            velocity.Handle,
+            IntPtr.Zero,
+            44, // HE grenade weapon ID
+            player.TeamNum
+        );
+    }
+    public void ParticleCreate(string model, Vector startPos, Vector? endPos, QAngle rotation, float duration = -1)
+    {
+        var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
+        if (particle == null)
+        {
+            Server.PrintToConsole($"[Error] Unable to create Particle {model}");
+            return;
+        }
+        particle.StartActive = true;
+        particle.EffectName = model;
+        particle.AlphaScale = 1150f;
+        particle.RadiusScale = 110f;
+        particle.SelfIllumScale = 0.5f;
+        particle.ColorTint = Color.Green;
+        particle.RenderMode = RenderMode_t.kRenderGlow;
+        particle.Teleport(startPos, null, null);
+        particle.DispatchSpawn();
+        particle.AcceptInput("Start");
+
+        if (duration != -1)
+        {
+            AddTimer(duration, () =>
+            {
+                if (particle != null && particle.IsValid)
+                {
+                    particle.AcceptInput("DestroyImmediately");
+                }
+            });
+        }
+    }
+    private void Detonate(CCSPlayerController player, Vector Position, float damage = 100, float radius = 200)
+    {
+        if(player == null || !player.IsValid || Position == null) return;
+
+        var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
+        if (particle?.IsValid is not true) return;
+
+        particle.StartActive = true;
+        particle.EffectName = "particles/explosions_fx/explosion_c4_short.vpcf";
+        particle.AlphaScale = 1150f;
+        particle.RadiusScale = 110f;
+        particle.SelfIllumScale = 0.5f;
+        particle.ColorTint = Color.Green;
+        particle.RenderMode = RenderMode_t.kRenderGlow;
+        particle.Teleport(Position, null, null);
+        particle.DispatchSpawn();
+        particle.AcceptInput("Start");
+    }
+    /*public void ParticleCreate(string model, Vector startPos, Vector? endPos, QAngle rotation, float duration = -1)
+    {
+        var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
+        if (particle == null)
+        {
+            Server.PrintToConsole($"[Error] Unable to create Particle {model}");
+            return;
+        }
+        particle.StartActive = true;
+        particle.EffectName = model;
+        particle.ColorTint = Color.Green;
+        particle.AlphaScale = 1f;
+        particle.RadiusScale = 1f;
+        particle.RenderMode = RenderMode_t.kRenderGlow;
+        particle.RenderFX = RenderFx_t.kRenderFxFadeOut;
+
+        particle.Teleport(startPos, rotation);
+
+        particle.AcceptInput("SetControlPoint", value: $"0: {startPos}");
+        if (endPos != null) particle.AcceptInput("SetControlPoint", value: $"1: {endPos}");
+
+        particle.DispatchSpawn();
+        particle.AcceptInput("Start");
+
+        if (duration != -1)
+        {
+            AddTimer(duration, () =>
+            {
+                if (particle != null && particle.IsValid)
+                {
+                    particle.Remove();
+                }
+            });
+        }
+    }*/
     public string RemoveWeaponPrefix(string weaponName)
     {
         if (string.IsNullOrEmpty(weaponName)) return weaponName;
@@ -312,19 +485,45 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         models[0] = model;
         return models;
     }
-    public CDynamicProp CreateStaticEntity(Vector Position, string modelName)
+    public CPhysicsProp CreateStaticEntity(string modelName, Vector position, QAngle angles, bool takesDamage = false, int health = 100, bool haveCollision = false, bool havePhysics = false, float entityScale = 1.0f)
     {
-        var model = Utilities.CreateEntityByName<CDynamicProp>("prop_dynamic");
-        if (model == null)
+        var prop = Utilities.CreateEntityByName<CPhysicsProp>("prop_physics_override");
+        if (prop == null)
             return null;
 
-        model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
-        model.SetModel(modelName);
-        model.DispatchSpawn();
+        prop.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(prop.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
+        prop.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
 
-        model.Teleport(Position, QAngle.Zero, Vector.Zero);
+        prop.SetModel(modelName);
+        prop.Teleport(position, angles, Vector.Zero);
+        prop.DispatchSpawn();
 
-        return model;
+        Server.NextFrame(() =>
+        {
+            if (haveCollision) SetEntityCollisionGroup(prop, CollisionGroup.COLLISION_GROUP_PASSABLE_DOOR);
+            else SetEntityCollisionGroup(prop, CollisionGroup.COLLISION_GROUP_PUSHAWAY);
+            if (takesDamage)
+            {
+                prop.MaxHealth = health;
+                prop.Health = health;
+                prop.TakesDamage = true;
+                prop.TakeDamageFlags = TakeDamageFlags_t.DFLAG_ALWAYS_FIRE_DAMAGE_EVENTS;
+                Utilities.SetStateChanged(prop, "CBaseEntity", "m_iHealth");
+                Utilities.SetStateChanged(prop, "CBaseEntity", "m_iMaxHealth");
+            }
+            if (!havePhysics) prop.AcceptInput("DisableMotion");
+        });
+
+        var bodyComponent = prop.CBodyComponent;
+        if (bodyComponent is not { SceneNode: not null }) return null;
+
+        if (entityScale != 1.0f)
+        {
+            bodyComponent.SceneNode.GetSkeletonInstance().Scale = entityScale;
+            Utilities.SetStateChanged(prop, "CGameSceneNode", "m_flScale");
+        }
+
+        return prop;
     }
     public CPointWorldText CreateWorldText(string message, Vector position, QAngle rotation, int fontSize = 30, string hexColor = "#ffffffff", string fontName = "Arial Black", bool background = false)
     {
@@ -357,6 +556,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         entity.DispatchSpawn();
 
         return entity;
+    }
+    public float GetGroundDistance(Vector position)
+    {
+        if (position == null) return 0;
+
+        CGameTrace _trace = TraceRay.TraceShape(position, new QAngle(90, 0, 0), TraceMask.MaskAll, Contents.Sky, 0);
+        return _trace.Distance();
     }
     public void UpdateWorldText(CPointWorldText entity, string message, string color = "#ffffffff")
     {
@@ -699,6 +905,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         float length = vec.Length();
         return length == 0f ? new Vector(0, 0, 0) : vec / length;
     }
+    public bool IsEqualVector(Vector vec1, Vector vec2)
+    {
+        return vec1.X == vec2.X && vec1.Y == vec2.Y && vec1.Z == vec2.Z;
+    }
     public static CBaseEntity? GetClientAimTarget(CCSPlayerController player)
     {
         var GameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault()?.GameRules;
@@ -816,7 +1026,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         entity.Collision.CollisionGroup = (byte)group;
         entity.Collision.CollisionAttribute.CollisionGroup = (byte)group;
 
-        var collisionRulesChanged = new VirtualFunctionVoid<nint>(entity.Handle, 172);
+        int vtableIndex = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? 188 : 189;
+        var collisionRulesChanged = new VirtualFunctionVoid<nint>(entity.Handle, vtableIndex);
         collisionRulesChanged.Invoke(entity.Handle);
 
         Utilities.SetStateChanged(entity, "CCollisionProperty", "m_collisionAttribute");
@@ -860,10 +1071,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
         return false;
     }
-    public bool IsPlayerDetected(Vector _origin, Vector _endOrigin, CCSPlayerController? player = null)
+    public bool IsPlayerDetected(Vector _origin, Vector _endOrigin, ulong mask, ulong contents, CCSPlayerController? player = null)
     {
-        ulong mask = player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith;
-        ulong contents = player.PlayerPawn.Value!.Collision.CollisionGroup;
         CGameTrace? trace = TraceRay.TraceShape(_origin, _endOrigin, mask, contents, player);
 
         if (!trace.HasValue)
@@ -906,12 +1115,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             return true;
         }*/
 
-        return IsPlayerDetected(player1.PlayerPawn.Value!.GetEyePosition(), player2.PlayerPawn.Value!.GetEyePosition(), player1);
+        return IsPlayerDetected(player1.PlayerPawn.Value!.GetEyePosition(), player2.PlayerPawn.Value!.GetEyePosition(), player1.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, player1.PlayerPawn.Value!.Collision.CollisionGroup, player1);
     }
 
 
     /// <summary>
-    /// Enhanced version of IsPlayerBehind with configurable FOV
+    /// Determines if Player2 is behind Player1 based on Player1's view direction.
     /// </summary>
     private bool IsPlayerBehind(CCSPlayerController player1, CCSPlayerController player2)
     {

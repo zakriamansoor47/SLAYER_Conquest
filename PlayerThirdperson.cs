@@ -153,6 +153,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         _cameraProp.DispatchSpawn();
 
         _cameraProp.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
+        SetEntityCollisionGroup(_cameraProp, CollisionGroup.COLLISION_GROUP_NEVER);
         _cameraProp.Collision.SolidFlags = 12;
         _cameraProp.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
         _cameraProp.TakesDamage = false;
@@ -266,7 +267,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         float distance = (currentPos - idealPos).Length();
         float speed = pawn.AbsVelocity.Length2D();
 
-        float baseLerp = 0.12f;
+        float baseLerp = 0.14f;
         float distanceFactor = Math.Clamp(distance / 30f, 0f, 2f);
         float speedFactor = Math.Clamp(speed / 200f, 0f, 1f);
         float adaptiveLerp = Math.Clamp(baseLerp * (1f + distanceFactor + speedFactor), 0.08f, 0.5f);

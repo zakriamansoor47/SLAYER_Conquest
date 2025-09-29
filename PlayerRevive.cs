@@ -59,7 +59,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (player == null || !player.IsValid || reviver == null || !reviver.IsValid || player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE || GetPlayerReviveEntry(player) == null || player.TeamNum != reviver.TeamNum || IsPlayerGettingRevived(player)) return null;
 
-        if(IsPlayerBehind(reviver, player)) return null; // Reviver is behind the player being revived, not valid
+        if (IsPlayerBehind(reviver, player)) return null; // Reviver is behind the player being revived, not valid
 
         var reviverType = GetPlayerClassType(reviver);
         if (reviverType == PlayerClassType.Medic) return ReviverType.Medic; // Reviver is a Medic
@@ -153,7 +153,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 else // Reviving is still valid
                 {
                     // Ensure the reviver is still within the required distance and facing the player being revived
-                    if(CalculateDistanceBetween(reviveEntry.player.PlayerPawn.Value.AbsOrigin, reviveEntry.reviver.PlayerPawn.Value.AbsOrigin) > 80 || IsPlayerBehind(reviveEntry.reviver, reviveEntry.player))
+                    if (CalculateDistanceBetween(reviveEntry.player.PlayerPawn.Value.AbsOrigin, reviveEntry.reviver.PlayerPawn.Value.AbsOrigin) > 80 || IsPlayerBehind(reviveEntry.reviver, reviveEntry.player))
                     {
                         AbortReviving(reviveEntry.player);
                         continue; // Skip further processing for this entry
@@ -312,7 +312,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         float maxDistance = 1600f;
 
         var nearbyMedics = Utilities.GetPlayers()
-            .Where(p =>p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == player.TeamNum && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && p != player &&
+            .Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == player.TeamNum && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && p != player &&
                 (GetPlayerClassType(p) == PlayerClassType.Medic || // Check if the player is in a Medic class
                 IsPlayerSquadmate(player, p) == true)) // Check if the player is in a squad member
             .Select(entry => new
@@ -330,10 +330,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
     private void CheckReviveOnTick()
     {
-        foreach (var player in Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE&& !player.IsHLTV && !player.IsBot))
+        foreach (var player in Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && !player.IsHLTV && !player.IsBot))
         {
             var buttons = player.Buttons;
-            if((buttons & PlayerButtons.Use) != 0) // Check, is player Pressed +use button on tick
+            if ((buttons & PlayerButtons.Use) != 0) // Check, is player Pressed +use button on tick
             {
                 if (!IsPlayerReviving(player)) // if he not reviving anyone rn
                 {
@@ -347,16 +347,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 else // Already Reviving Someone
                 {
                     var playerBeingRevived = GetPlayerBeingRevivedByReviver(player);
+                    if (playerBeingRevived == null || !playerBeingRevived.IsValid || playerBeingRevived.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE) continue;
                     var reviveEntry = GetPlayerReviveEntry(playerBeingRevived);
                     player.PrintToCenterHtml
                     (
                         $"{Localizer["CenterHtml.Reviving", playerBeingRevived.PlayerName]}" + "<br>" +
                         $"{GenerateLoadingText(Server.CurrentTime - reviveEntry.reviveTime, reviveEntry.reviveDuration)}"
                     );
-                    // Keep the player facing the same direction while reviving
-                    var lookAtAngle = GetLookAtAngle(new Vector(player.PlayerPawn.Value.AbsOrigin.X, player.PlayerPawn.Value.AbsOrigin.Y, player.PlayerPawn.Value.AbsOrigin.Z + 64), DeadPlayersPosition[playerBeingRevived].Item1);
                     FreezePlayer(player);
-                    player.PlayerPawn.Value.Teleport(angles: lookAtAngle);
+                    // Keep the player facing the same direction while reviving
+                    UpdateReviveLookAt(player, playerBeingRevived);
                 }
             }
             else // Not Pressing Use button
@@ -370,4 +370,68 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         }
     }
+    /// <summary>
+    /// Natural look-around with gentle pull back to target
+    /// </summary>
+    private void UpdateReviveLookAt(CCSPlayerController player, CCSPlayerController deadPlayer)
+    {
+        if (player == null || !player.IsValid || deadPlayer == null || !deadPlayer.IsValid || !DeadPlayersPosition.ContainsKey(deadPlayer)) return;
+
+        var currentAngles = player.PlayerPawn.Value.EyeAngles;
+        var playerEyePos = new Vector(player.PlayerPawn.Value.AbsOrigin.X, player.PlayerPawn.Value.AbsOrigin.Y, player.PlayerPawn.Value.AbsOrigin.Z + 64);
+        var targetAngles = GetLookAtAngle(playerEyePos, DeadPlayersPosition[deadPlayer].Item1);
+        
+        // Calculate how far the player is looking away from target
+        float pitchDiff = Math.Abs(NormalizeAngle(currentAngles.X - targetAngles.X));
+        float yawDiff = Math.Abs(NormalizeAngle(currentAngles.Y - targetAngles.Y));
+        
+        // Maximum allowed deviation
+        float maxDeviation = 30f; // degrees
+        
+        // Only apply correction if player is looking too far away
+        if (pitchDiff > maxDeviation || yawDiff > maxDeviation)
+        {
+            // Gentle pull back towards target
+            float pullStrength = 0.01f; // Very gentle pull
+            var correctedAngles = LerpAngles(currentAngles, targetAngles, pullStrength);
+            player.PlayerPawn.Value.Teleport(angles: correctedAngles);
+        }
+        // Otherwise, let the player look around freely within the range
+    }
+
+    /// <summary>
+    /// Lerp between two QAngles with proper angle wrapping
+    /// </summary>
+    private QAngle LerpAngles(QAngle from, QAngle to, float t)
+    {
+        return new QAngle(
+            LerpAngle(from.X, to.X, t),
+            LerpAngle(from.Y, to.Y, t),
+            LerpAngle(from.Z, to.Z, t)
+        );
+    }
+
+    /// <summary>
+    /// Lerp a single angle component with proper wrapping (-180 to 180)
+    /// </summary>
+    private float LerpAngle(float from, float to, float t)
+    {
+        // Normalize angles to -180 to 180 range
+        from = NormalizeAngle(from);
+        to = NormalizeAngle(to);
+        
+        // Calculate the shortest angular distance
+        float diff = to - from;
+        
+        // Wrap around if the difference is greater than 180 degrees
+        if (diff > 180f)
+            diff -= 360f;
+        else if (diff < -180f)
+            diff += 360f;
+        
+        // Lerp and normalize result
+        float result = from + (diff * t);
+        return NormalizeAngle(result);
+    }
+
 }

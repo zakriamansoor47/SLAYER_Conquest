@@ -40,26 +40,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         CTFSettingsMenu(player);
     }
-    [ConsoleCommand("create", "Create a new entity at the position where the player is aiming")]
+    [ConsoleCommand("test", "Test command")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void CreateEntityCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
 
-        // Get position where player is aiming
-        var position = GetPlayerAimPosition(player);
-        if (position == null) return;
-
-        // Ensure that the flag  name is provided
-        if (string.IsNullOrWhiteSpace(command.ArgString))
-        {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.InvalidFlagName"]}");
-            return;
-        }
-
-        var flagName = command.ArgString.Trim();
-
-        CreateStaticEntity(position, command.ArgString);
+        ParticleCreate("particles/overhead_icon_fx/player_ping.vpcf", player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsOrigin, QAngle.Zero);
+        //player.EmitSound("BaseGrenade.Explode", new RecipientFilter { player });
     }
     [ConsoleCommand("teleport", "Teleport the player to a specific location")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
@@ -148,7 +136,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_ONLY)]
     public void CommandPlayerClass(CCSPlayerController? player, CommandInfo command)
     {
-        if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected) return;
+        if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || MatchStatus.Status != MatchStatusType.Starting) return;
 
         OpenPlayerClassMenu(player);
     }
@@ -157,8 +145,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public void UnstuckPlayerCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
-        
-        if(!IsPlayerStuck(player))
+
+        if (!IsPlayerStuck(player))
         {
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.DarkRed}You are not stuck!");
             return;
@@ -180,7 +168,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public void EndMatchCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid) return;
-        
+
         EndMatch();
     }
     // Block player from dropping weapons
@@ -193,5 +181,191 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if (weapon == null) return;
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DropDisabled"]}");
         }
+    }
+    
+    /// <summary>
+    /// Use special item command
+    /// </summary>
+    [ConsoleCommand("css_useitem", "Use your special item")]
+    public void UseSpecialItemCommand(CCSPlayerController? player, CommandInfo commandInfo)
+    {
+        if (player == null || !player.IsValid) return;
+        
+        string itemName = commandInfo.GetArg(1);
+        TryUseSpecialItem(player, itemName);
+    }
+
+    /// <summary>
+    /// List player's special items
+    /// </summary>
+    [ConsoleCommand("css_items", "Show your special items")]
+    public void ListSpecialItemsCommand(CCSPlayerController? player, CommandInfo commandInfo)
+    {
+        if (player == null || !player.IsValid) return;
+        
+        if (!PlayerStatuses.ContainsKey(player) || PlayerStatuses[player].PlayerItems == null || PlayerStatuses[player].PlayerItems.Count == 0)
+        {
+            player.PrintToChat($"{ChatColors.Red}You don't have any special items!");
+            return;
+        }
+        
+        player.PrintToChat($"{ChatColors.Green}=== Your Special Items ===");
+        
+        foreach (var item in PlayerStatuses[player].PlayerItems)
+        {
+            string status = item.CanUse ? $"{ChatColors.Green}Ready" : 
+                        item.IsOnCooldown ? $"{ChatColors.Red}Cooldown ({item.RemainingCooldown:F1}s)" : 
+                        $"{ChatColors.Yellow}No uses left";
+            
+            player.PrintToChat($"{ChatColors.Yellow}{item.ItemName}: {ChatColors.White}{item.ItemUseCount}/{item.MaxUseCount} uses - {status}");
+        }
+        
+        player.PrintToChat($"{ChatColors.Lime}Use: css_useitem <itemname> or css_useitem (for first available)");
+    }
+
+    /// <summary>
+    /// Show detailed item information
+    /// </summary>
+    [ConsoleCommand("css_iteminfo", "Show detailed item information")]
+    public void SpecialItemInfoCommand(CCSPlayerController? player, CommandInfo commandInfo)
+    {
+        if (player == null || !player.IsValid) return;
+        
+        string itemName = commandInfo.GetArg(1);
+        
+        if (string.IsNullOrEmpty(itemName))
+        {
+            player.PrintToChat($"{ChatColors.Yellow}Usage: css_iteminfo <itemname>");
+            return;
+        }
+        
+        if (!PlayerStatuses.ContainsKey(player) || PlayerStatuses[player].PlayerItems == null)
+        {
+            player.PrintToChat($"{ChatColors.Red}You don't have any special items!");
+            return;
+        }
+        
+        var playerItem = PlayerStatuses[player].PlayerItems.FirstOrDefault(x => x.ItemName.Equals(itemName, StringComparison.OrdinalIgnoreCase));
+        if (playerItem == null)
+        {
+            player.PrintToChat($"{ChatColors.Red}You don't have {itemName}!");
+            return;
+        }
+        
+        var config = Config.SpecialItems.ContainsKey(playerItem.ItemName) ? Config.SpecialItems[playerItem.ItemName] : null;
+        
+        player.PrintToChat($"{ChatColors.Green}=== {playerItem.ItemName} ===");
+        player.PrintToChat($"{ChatColors.Yellow}Description: {ChatColors.White}{config?.Description ?? "No description"}");
+        player.PrintToChat($"{ChatColors.Yellow}Uses: {ChatColors.White}{playerItem.ItemUseCount}/{playerItem.MaxUseCount}");
+        player.PrintToChat($"{ChatColors.Yellow}Cooldown: {ChatColors.White}{(playerItem.IsOnCooldown ? $"{playerItem.RemainingCooldown:F1}s" : "Ready")}");
+        
+        if (playerItem.ItemRegenerateTime > 0)
+        {
+            player.PrintToChat($"{ChatColors.Yellow}Next regen: {ChatColors.White}{(playerItem.TimeUntilRegeneration > 0 ? $"{playerItem.TimeUntilRegeneration:F1}s" : "Ready")}");
+        }
+    }
+
+    /// <summary>
+    /// Show information about nearby deployables (Enhanced Version)
+    /// </summary>
+    [ConsoleCommand("css_deployables", "Show information about nearby deployables")]
+    public void ShowDeployablesCommand(CCSPlayerController? player, CommandInfo commandInfo)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var playerPos = player.PlayerPawn.Value?.CBodyComponent?.SceneNode?.AbsOrigin;
+        if (playerPos == null) return;
+
+        bool showAll = commandInfo.GetArg(1).Equals("all", StringComparison.OrdinalIgnoreCase);
+        float maxDistance = showAll ? 2000f : 500f;
+
+        player.PrintToChat($"{ChatColors.Green}=== Nearby Deployables ({maxDistance:F0} units) ===");
+
+        var deployablesByType = new Dictionary<string, List<(string playerName, float distance, string cooldown, float age)>>();
+
+        // Check all players' deployed items
+        foreach (var playerStatus in PlayerStatuses)
+        {
+            var otherPlayer = playerStatus.Key;
+            var status = playerStatus.Value;
+
+            if (!otherPlayer.IsValid || otherPlayer.TeamNum != player.TeamNum || status.PlayerItems == null)
+                continue;
+
+            foreach (var item in status.PlayerItems)
+            {
+                if (!item.HasDeployedEntities) continue;
+
+                // Check each deployed entity for this item
+                for (int i = 0; i < item.DeployedEntities.Count; i++)
+                {
+                    var deployedItem = item.DeployedEntities[i];
+                    if (!deployedItem.IsValid) continue;
+
+                    float distance = CalculateDistanceBetween(playerPos, deployedItem.Position);
+                    if (distance <= maxDistance)
+                    {
+                        string cooldownText = "";
+                        if (item.ItemName == "Medkit" && item.IsPlayerOnPickupCooldown(player, 30f))
+                        {
+                            cooldownText = $"Cooldown: {item.GetPlayerPickupCooldown(player, 30f):F0}s";
+                        }
+                        else if (item.ItemName == "AmmoBox" && item.IsPlayerOnPickupCooldown(player, 45f))
+                        {
+                            cooldownText = $"Cooldown: {item.GetPlayerPickupCooldown(player, 45f):F0}s";
+                        }
+                        else if (item.ItemName == "Medkit" || item.ItemName == "AmmoBox")
+                        {
+                            cooldownText = "Ready";
+                        }
+
+                        string itemKey = item.ItemName;
+                        if (item.DeployedEntities.Count > 1)
+                        {
+                            itemKey = $"{item.ItemName} #{i + 1}";
+                        }
+
+                        float age = Server.CurrentTime - deployedItem.DeployTime;
+                        
+                        if (!deployablesByType.ContainsKey(itemKey))
+                        {
+                            deployablesByType[itemKey] = new List<(string, float, string, float)>();
+                        }
+                        
+                        deployablesByType[itemKey].Add((otherPlayer.PlayerName, distance, cooldownText, age));
+                    }
+                }
+            }
+        }
+
+        if (deployablesByType.Count == 0)
+        {
+            player.PrintToChat($"{ChatColors.Yellow}No deployables nearby.");
+            return;
+        }
+
+        int totalCount = 0;
+        foreach (var kvp in deployablesByType.OrderBy(x => x.Key))
+        {
+            var itemType = kvp.Key;
+            var deployables = kvp.Value.OrderBy(x => x.distance).ToList();
+
+            var color = itemType.StartsWith("Medkit") ? ChatColors.Green :
+                    itemType.StartsWith("AmmoBox") ? ChatColors.Lime :
+                    itemType.StartsWith("ReconRadio") ? ChatColors.Blue :
+                    itemType.StartsWith("Claymore") ? ChatColors.Red :
+                    ChatColors.White;
+
+            foreach (var deployable in deployables)
+            {
+                string ageText = deployable.age < 60 ? $"{deployable.age:F0}s" : $"{deployable.age / 60:F1}m";
+                string cooldownInfo = string.IsNullOrEmpty(deployable.cooldown) ? "" : $" ({deployable.cooldown})";
+                
+                player.PrintToChat($"{color}{itemType} {ChatColors.White}by {deployable.playerName} - {deployable.distance:F0}u, {ageText} old{cooldownInfo}");
+                totalCount++;
+            }
+        }
+
+        player.PrintToChat($"{ChatColors.White}Found {totalCount} deployable(s). Use 'css_deployables all' to see all within 2000 units.");
     }
 }

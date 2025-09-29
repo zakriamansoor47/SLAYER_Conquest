@@ -250,6 +250,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         AddTimer(Config.MatchEndShowBestSquadTime, () =>
         {
+            if (MatchStatus.Status != MatchStatusType.CounterTerroristWin || MatchStatus.Status != MatchStatusType.TerroristWin) return; // If the match is restarted somehow, don't proceed
             ClearAllCenterMessageLines(); // Clear Best Squad message lines after 5 seconds
             foreach (var player in recipientFilter) // Open Match End Menu
             {

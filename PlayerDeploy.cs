@@ -39,6 +39,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public CDynamicProp? Model { get; set; } = null; // Reference to the model, if applicable
         public Vector Position { get; set; }
         public QAngle Rotation { get; set; }
+        public bool IsRadio { get; set; } = false; // To indicate if this is a radio deploy position
     }
     public void UpdatePlayerDeployPositions(CCSPlayerController player)
     {
@@ -110,7 +111,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         }
     }
-    private void AddDeployPosition(CCSPlayerController player, Vector position, QAngle rotation, string name = "Default Deploy Position", CCSPlayerController? isDeployPlayer = null, CDynamicProp? model = null)
+    private void AddDeployPosition(CCSPlayerController player, Vector position, QAngle rotation, string name = "Default Deploy Position", CCSPlayerController? isDeployPlayer = null, CDynamicProp? model = null, bool isRadio = false)
     {
         if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum < 2)
             return;
@@ -128,7 +129,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Player = isDeployPlayer,
             Model = model,
             Position = new Vector(position.X, position.Y, position.Z),
-            Rotation = new QAngle(rotation.X, rotation.Y, rotation.Z)
+            Rotation = new QAngle(rotation.X, rotation.Y, rotation.Z),
+            IsRadio = isRadio
         };
         PlayerDeployPositions[player].Add(deployPosition);
     }
