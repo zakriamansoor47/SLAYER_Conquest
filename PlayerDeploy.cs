@@ -186,26 +186,64 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         player.Respawn(); // Respawn the player
         player.PlayerPawn.Value.Teleport(spawnPosition, null, new Vector(0, 0 , 50)); // Teleport the player to the deploy position
-        AddTimer(1f, () => // If the player is stuck, find spawn position again
-        {
-           TryToUnstuckPlayer(player);
-        }); 
+        
         return true;
     }
     private void TryToUnstuckPlayer(CCSPlayerController player)
     {
         if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
 
-        if (IsPlayerStuck(player))
+        if (IsPlayerStuck(player) && PlayerStatuses.ContainsKey(player) && (Server.CurrentTime - PlayerStatuses[player].LastStuckTime) > 1f) // If the player is stuck and hasn't been unstuck recently
         {
-            var safeSpawnVolume = FindSafeSpawnVolume(player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsRotation, player);
-            if (safeSpawnVolume == null) player.Respawn();
-            else player.Pawn.Value!.Teleport(safeSpawnVolume);
+            PlayerStatuses[player].LastStuckTime = Server.CurrentTime;
+            // Find safe spawn volume near the player
+            var safeSpawnVolume = FindSafeSpawnVolume(player.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsRotation, player, true);
+            if (safeSpawnVolume == null) // If no safe spawn volume found at current position, try to find from closest teammate or deploy position
+            {
+                // Get Closest Player
+                var closestPlayer = FindNearestTeammate(player, 500f, false);
+                if (closestPlayer != null && closestPlayer.IsValid && closestPlayer.Connected == PlayerConnectedState.PlayerConnected && closestPlayer != player && closestPlayer.Pawn.Value.TeamNum == player.TeamNum && closestPlayer.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && !IsPlayerStuck(closestPlayer))
+                {
+                    safeSpawnVolume = FindSafeSpawnVolume(closestPlayer.PlayerPawn.Value.AbsOrigin, closestPlayer.PlayerPawn.Value.AbsRotation, closestPlayer);
+                    if (safeSpawnVolume != null)
+                    {
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a closest teammate to unstuck you.");
+                        player.Pawn.Value!.Teleport(safeSpawnVolume);
+                        return;
+                    }
+                }
+                if (PlayerDeployPositions.ContainsKey(player) && PlayerDeployPositions[player].Count > 0)
+                {
+                    var nearestDeploy = PlayerDeployPositions[player].OrderBy(dp => (dp.Position - player.PlayerPawn.Value.AbsOrigin).Length()).First();
+                    safeSpawnVolume = FindSafeSpawnVolume(nearestDeploy.Position, nearestDeploy.Rotation, player);
+                    if (safeSpawnVolume != null)
+                    {
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a closest deploy position to unstuck you.");
+                        player.Pawn.Value!.Teleport(safeSpawnVolume);
+                    }
+                    else
+                    {
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}Tried to find a safe location but failed! Teleported you to default spawn to unstuck you.");
+                        player.Respawn(); // Respawn the player to free them from being stuck if no other option
+                    }    
+                }
+                else
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}Tried to find a safe location but failed! Teleported you to default spawn to unstuck you.");
+                    player.Respawn(); // Respawn the player to free them from being stuck if no other option
+                }  
+            }
+            else
+            {
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a safe location nearby to unstuck you.");
+                player.Pawn.Value!.Teleport(safeSpawnVolume); // Teleport the player to the safe spawn volume
+            }
         }
+        return;
     }
-    private unsafe Vector? FindSafeSpawnVolume(Vector basePos, QAngle facing, CCSPlayerController player)
+    private unsafe Vector? FindSafeSpawnVolume(Vector basePos, QAngle facing, CCSPlayerController player, bool findNearestPositionFirst = false)
     {
-        float[] distances = { 140f, 135f, 130f, 125f, 120f, 115f, 110f, 105f, 100f, 95f, 90f, 85f, 80f, 75f, 70f, 65f, 60f, 55f, 50f };  // try far to near
+        float[] distances = { 140f, 135f, 130f, 125f, 120f, 115f, 110f, 105f, 100f, 95f, 90f, 85f, 80f, 75f, 70f, 65f, 60f, 55f, 50f, 45f, 40f };  // try far to near
         float[] VerticalDistances = { 60f, 50f, 40f, 30f };  // try above to lower
         Vector[] directions = new[]
         {
@@ -218,6 +256,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             new Vector(1, -1, 0),  // front-right
             new Vector(1, 1, 0),   // front-left
         };
+        if (findNearestPositionFirst) Array.Reverse(distances); // try near to far
 
         var pawn = player.PlayerPawn.Value;
 

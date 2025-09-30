@@ -211,6 +211,7 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             AllowMultipleDeployments = false
         }
     };
+    [JsonPropertyName("PlayerPoints")] public PlayerPoints PlayerPoints { get; set; } = new PlayerPoints();
     [JsonPropertyName("MapList")] public List<string> MapList { get; set; } = new List<string>
     {
         "de_dust2",
@@ -307,20 +308,20 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
 // Add these classes to define the config structures
 public class ClassWeaponConfig
 {
-    [JsonPropertyName("PrimaryWeapons")] public List<string> PrimaryWeapons { get; set; } = new List<string>();
-    [JsonPropertyName("SecondaryWeapons")] public List<string> SecondaryWeapons { get; set; } = new List<string>();
-    [JsonPropertyName("Equipment")] public List<string> Equipment { get; set; } = new List<string>();
+    public List<string> PrimaryWeapons { get; set; } = new List<string>();
+    public List<string> SecondaryWeapons { get; set; } = new List<string>();
+    public List<string> Equipment { get; set; } = new List<string>();
 }
 
 public class ClassAttributeConfig
 {
-    [JsonPropertyName("Health")] public int Health { get; set; } = 100;
-    [JsonPropertyName("Armor")] public int Armor { get; set; } = 0;
-    [JsonPropertyName("HasHelmet")] public bool HasHelmet { get; set; } = false;
-    [JsonPropertyName("Speed")] public float Speed { get; set; } = 1.0f;
-    [JsonPropertyName("T_Model")] public string T_Model { get; set; } = "";
-    [JsonPropertyName("CT_Model")] public string CT_Model { get; set; } = "";
-    [JsonPropertyName("Description")] public string Description { get; set; } = "";
+    public int Health { get; set; } = 100;
+    public int Armor { get; set; } = 0;
+    public bool HasHelmet { get; set; } = false;
+    public float Speed { get; set; } = 1.0f;
+    public string T_Model { get; set; } = "";
+    public string CT_Model { get; set; } = "";
+    public string Description { get; set; } = "";
 }
 public class SpecialItemConfig
 {
@@ -332,5 +333,27 @@ public class SpecialItemConfig
     public float RegenerateTime { get; set; } = -1f;
     public string Description { get; set; } = "";
     public bool AllowMultipleDeployments { get; set; } = false;
+}
+public class PlayerPoints
+{
+    public int KillPoints { get; set; } = 125;
+    public int ClaymoreKillPoints { get; set; } = 250;
+    public int KnifeKillPoints { get; set; } = 175;
+    public int GrenadeKillPoints { get; set; } = 150;
+    public int HeadshotKillPoints { get; set; } = 50;
+    public int ArtilleryKillPoints { get; set; } = 250;
+    public int MissileKillPoints { get; set; } = 300;
+    public int AssistPoints { get; set; } = 100;
+    public int DeathPoints { get; set; } = -100;
+    public int CaptureFlagPoints { get; set; } = 100;
+    public int GiveAmmoPoints { get; set; } = 100;
+    public int GiveHealPoints { get; set; } = 100;
+    public int GiveAmmoPouchPoints { get; set; } = 50;
+    public int GiveMedicPouchPoints { get; set; } = 50;
+    public int SquadSpawnPoints { get; set; } = 100;
+    public int ReconRadioSpawnPoints { get; set; } = 100;
+    public int MedicRevivePoints { get; set; } = 200;
+    public int SquadRevivePoints { get; set; } = 150;
+
 }
 

@@ -41,6 +41,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public void OnConfigParsed(SLAYER_CaptureTheFlagConfig config)
     {
         Config = config;
+        ExecuteServerCommands();
     }
     public IT3MenuManager? MenuManager; // get the instance
     public IT3MenuManager? GetMenuManager()
@@ -54,7 +55,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public readonly Random _random = new Random();
     public Vector DeployCameraPosition = new Vector(0, 0, 2500); // Default deploy camera position
     public (Vector, QAngle) MatchEndCameraPosition = (new Vector(0, 0, 0), new QAngle(0, 0, 0)); // Default match end camera position
-    
+
     public FileHandling fileHandler;
     public Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?> ThirdPerson = new Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?>();
     public Dictionary<CCSPlayerController, (Vector, QAngle)> DeadPlayersPosition = new Dictionary<CCSPlayerController, (Vector, QAngle)>();
@@ -202,14 +203,20 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 // If no player is found or the player is invalid, continue
                 if (player == null || !player.IsValid) continue;
 
-                foreach (var ammoPouch in DroppedAmmoPouches.Where(a => a != null && a.IsValid && a.DeployTeam != player.TeamNum))
+                if (DroppedAmmoPouches != null && DroppedAmmoPouches.Count > 0)  // If there are dropped ammo pouches, check if they should be transmitted to the player
                 {
-                    // If the ammo pouch is not for this player's team, hide it from them
-                    info.TransmitEntities.Remove(ammoPouch.Entity);
-                    foreach (var beam in ammoPouch.BeaconBeams)
+                    foreach (var ammoPouch in DroppedAmmoPouches.Where(a => a != null && a.IsValid && a.DeployTeam != player.TeamNum))
                     {
-                        if (beam != null && beam.IsValid)
-                            info.TransmitEntities.Remove(beam);
+                        // If the ammo pouch is not for this player's team, hide it from them
+                        if (ammoPouch.Entity != null && ammoPouch.Entity.IsValid) info.TransmitEntities.Remove(ammoPouch.Entity);
+                        // Also hide the beacon beams if any
+                        if (ammoPouch.BeaconBeams != null)
+                        {
+                            foreach (var beam in ammoPouch.BeaconBeams.Where(b => b != null && b.IsValid))
+                            {
+                                info.TransmitEntities.Remove(beam);
+                            }
+                        }
                     }
                 }
                 // If the match has starting/ended, hide all players from everyone
@@ -304,27 +311,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         });
         RegisterEventHandler<EventRoundStart>((@event, @info) =>
         {
-            // Execute server commands 
-            Server.ExecuteCommand("mp_give_player_c4 0");
-            Server.ExecuteCommand($"mp_autoteambalance 0");
-            Server.ExecuteCommand($"mp_limitteams 0");
-            Server.ExecuteCommand($"mp_roundtime 60");
-            Server.ExecuteCommand($"mp_drop_grenade_enable 0");
-            Server.ExecuteCommand($"mp_drop_knife_enable 0");
-            Server.ExecuteCommand($"mp_death_drop_c4 0");
-            Server.ExecuteCommand($"mp_death_drop_defuser 0");
-            Server.ExecuteCommand($"mp_death_drop_grenade 0");
-            Server.ExecuteCommand($"mp_death_drop_healthshot 0");
-            Server.ExecuteCommand($"mp_death_drop_taser 0");
-            Server.ExecuteCommand($"bot_controllable 0");
-            Server.ExecuteCommand($"bot_prefix \"\""); // Clear bot prefix
-            Server.ExecuteCommand($"mp_ignore_round_win_conditions 1");
-            Server.ExecuteCommand($"mp_spawnprotectiontime {Config.PlayerSpawnProtectionTime}");
-            Server.ExecuteCommand($"mp_buytime 0"); // Disable buy zone
-            if(Config.TeamNoBlock) Server.ExecuteCommand($"mp_solid_teammates 0");
-            else Server.ExecuteCommand($"mp_solid_teammates 1");
-
-
+            ExecuteServerCommands();
             RemoveObjectives(); // Remove any existing objectives
             // Reset ability cooldowns at round start if desired
             ClearStuff(); // Clear all previous data
@@ -379,6 +366,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     SetGlowOnMedic(player); // Set glow on the medic to indicate the revive request
                     SetGlowOnSquadMembers(player); // Set glow on squad members if enabled
                     SetPlayerNameAndClan(player); // Set player name and clan tag
+                    TryToUnstuckPlayer(player); // Try to unstuck the player if they are stuck
                 }
                 // Remove dropped weapons after a certain time
                 foreach (var weapon in Utilities.FindAllEntitiesByDesignerName<CCSWeaponBaseGun>("weapon_").Where(w => w != null && w.IsValid))
@@ -501,16 +489,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
                 });
             }*/
-            
+
             // Set ThirdPerson mode if enabled and player is not a bot
             if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
-        
-            
+
+
             return HookResult.Continue;
         });
         RegisterEventHandler<EventPlayerHurt>((@event, @info) =>
         {
-            if(MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
+            if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
 
             var player = @event.Userid;
             var attacker = @event.Attacker;
@@ -518,7 +506,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
             if (attacker == null || !attacker.IsValid || attacker.Pawn.Value == null) return HookResult.Continue;
 
-            if(player.TeamNum == attacker.TeamNum) return HookResult.Continue; // Ignore team damage
+            if (player.TeamNum == attacker.TeamNum) return HookResult.Continue; // Ignore team damage
 
             if (PlayerStatuses.ContainsKey(player))
             {
@@ -530,7 +518,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         });
         RegisterEventHandler<EventPlayerDeath>((@event, @info) =>
         {
-            if(MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
+            if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin) return HookResult.Continue; // If the match is starting or has ended, do nothing
 
             var player = @event.Userid;
             var attacker = @event.Attacker;
@@ -544,6 +532,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 PlayerStatuses[player].Status = PlayerStatusType.Injured;
                 PlayerStatuses[player].TotalDeaths += 1;
+                GivePlayerPoints(player, Config.PlayerPoints.DeathPoints); // Give points for death if applicable
                 var playerSquad = GetPlayerSquad(player);
                 if (playerSquad != null)
                 {
@@ -563,12 +552,20 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (PlayerStatuses.ContainsKey(assister)) PlayerStatuses[assister].TotalAssists += 1;
                 var assisterSquad = GetPlayerSquad(assister);
                 if (assisterSquad != null) assisterSquad.TotalAssists += 1; // Increase squad total assists by 1
+                GivePlayerPoints(assister, Config.PlayerPoints.AssistPoints); // Give points for assist if applicable
             }
             if (attacker != null && attacker.IsValid && attacker != player && attacker.TeamNum != player.TeamNum)
             {
                 if (PlayerStatuses.ContainsKey(attacker)) PlayerStatuses[attacker].TotalKills += 1;
                 var attackerSquad = GetPlayerSquad(attacker);
                 if (attackerSquad != null) attackerSquad.TotalKills += 1;
+                if (@event.Headshot == true) GivePlayerPoints(attacker, Config.PlayerPoints.HeadshotKillPoints); // Give points for headshot if applicable
+                if (PlayerStatuses[player].LastKilledWith == "Claymore") GivePlayerPoints(attacker, Config.PlayerPoints.ClaymoreKillPoints); // Give points for kill with claymore if applicable
+                else if (PlayerStatuses[player].LastKilledWith.Contains("knife") || PlayerStatuses[player].LastKilledWith.Contains("bayonet")) GivePlayerPoints(attacker, Config.PlayerPoints.KnifeKillPoints); // Give points for kill with knife if applicable
+                else if (PlayerStatuses[player].LastKilledWith.Contains("hegrenade")) GivePlayerPoints(attacker, Config.PlayerPoints.GrenadeKillPoints); // Give points for kill with grenade if applicable
+                else if (PlayerStatuses[player].LastKilledWith.Contains("artillery")) GivePlayerPoints(attacker, Config.PlayerPoints.ArtilleryKillPoints); // Give points for kill with artillery shell if applicable
+                else if (PlayerStatuses[player].LastKilledWith.Contains("missile")) GivePlayerPoints(attacker, Config.PlayerPoints.MissileKillPoints); // Give points for kill with fateh missile if applicable
+                else GivePlayerPoints(attacker, Config.PlayerPoints.KillPoints); // Give points for kill if applicable
             }
 
             UpdateTicketCount(player.TeamNum); // Decrease ticket count by 1 if valid
@@ -602,12 +599,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 var random = _random.Next(1, 6); // Random number between 1 and 5
                 PlayerLowTicketsSound(random);
             }
-            
-            if(MatchStatus.TerroristTickets <= 0 || MatchStatus.CounterTerroristTickets <= 0) // If any team tickets are 0, end the match
+
+            if (MatchStatus.TerroristTickets <= 0 || MatchStatus.CounterTerroristTickets <= 0) // If any team tickets are 0, end the match
             {
                 EndMatch();
             }
-            
+
             if (!player.IsBot) // if player is not a bot, start the redeploy process
             {
                 DeadPlayersTimer[player] = (AddTimer(0.5f, () => // this delay to make sure player is started spectating other player, otherwise player.Pawn.Value!.ObserverServices will give null exception error
@@ -719,7 +716,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             PlayersRedeployTimer.Clear(); // Clear the dictionary
         }
     }
-    
+
     private void CleanPlayerStuff(CCSPlayerController player)
     {
         if (player == null || !player.IsValid) return;
@@ -760,7 +757,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (PlayerDeployPositions.ContainsKey(player))
             PlayerDeployPositions.Remove(player);
-            
+
 
         // Clean up squad data
         RemovePlayerFromSquad(player);
@@ -781,5 +778,31 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
             AvailableRevives.Remove(reviveEntry);
         }
+    }
+    private void ExecuteServerCommands()
+    {
+        // Execute server commands 
+        Server.ExecuteCommand("mp_startmoney 0");
+        Server.ExecuteCommand("mp_afterroundmoney 0");
+        Server.ExecuteCommand("mp_maxmoney 999999");
+        Server.ExecuteCommand("mp_playercashawards 0");
+        Server.ExecuteCommand("mp_give_player_c4 0");
+        Server.ExecuteCommand($"mp_autoteambalance 0");
+        Server.ExecuteCommand($"mp_limitteams 0");
+        Server.ExecuteCommand($"mp_roundtime 60");
+        Server.ExecuteCommand($"mp_drop_grenade_enable 0");
+        Server.ExecuteCommand($"mp_drop_knife_enable 0");
+        Server.ExecuteCommand($"mp_death_drop_c4 0");
+        Server.ExecuteCommand($"mp_death_drop_defuser 0");
+        Server.ExecuteCommand($"mp_death_drop_grenade 0");
+        Server.ExecuteCommand($"mp_death_drop_healthshot 0");
+        Server.ExecuteCommand($"mp_death_drop_taser 0");
+        Server.ExecuteCommand($"bot_controllable 0");
+        Server.ExecuteCommand($"bot_prefix \"\""); // Clear bot prefix
+        Server.ExecuteCommand($"mp_ignore_round_win_conditions 1");
+        Server.ExecuteCommand($"mp_spawnprotectiontime {Config.PlayerSpawnProtectionTime}");
+        Server.ExecuteCommand($"mp_buytime 0"); // Disable buy zone
+        if(Config.TeamNoBlock) Server.ExecuteCommand($"mp_solid_teammates 0");
+        else Server.ExecuteCommand($"mp_solid_teammates 1");
     }
 }

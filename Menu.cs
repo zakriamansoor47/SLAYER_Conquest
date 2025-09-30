@@ -1032,7 +1032,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     var spawned = SpawnPlayerAtDeployPosition(player, deployPosition); // Spawn the player at the deploy position
                     if (spawned)
                     {
+                        if (deployPosition.Player == null && deployPosition.Name.Contains("Radio")) GivePlayerPoints(player, Config.PlayerPoints.ReconRadioSpawnPoints); // Give points for using deploy position
+                        else if (deployPosition.Player != null) GivePlayerPoints(player, Config.PlayerPoints.SquadSpawnPoints); // Give points for using squadmate deploy position
                         manager.CloseMenu(p);
+                    }
+                    else
+                    {
+                        if (deployPosition.Player == null) player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Insufficient space to deploy here! Please choose again.");
+                        else player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Insufficient space near {ChatColors.Lime}{PlayerStatuses[deployPosition.Player].DefaultName}.");
                     }
                 }
                 var glow = PlayerSeeableGlow[player].FirstOrDefault(g => g.EntityIndex == (deployPosition.Player == null ? deployPosition.Model.Index : deployPosition.Player.Index) && g.GlowType == PlayerGlowType.DeployPosition);

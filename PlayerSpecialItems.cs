@@ -30,8 +30,8 @@ namespace SLAYER_CaptureTheFlag;
 public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
 {
     // Add this dictionary to track deployed spawn radios
-    public Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)> DeployedSpawnRadios = new();
-    public List<DeployedItemInfo> DroppedAmmoPouches = new();
+    public Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)> DeployedSpawnRadios = new Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)>();
+    public List<DeployedItemInfo> DroppedAmmoPouches = new List<DeployedItemInfo>();
     public Dictionary<CCSPlayerController, (Timer, int)> HealingTimers = new Dictionary<CCSPlayerController, (Timer, int)>();
 
     public enum SpecialItemsMaxCount
@@ -628,6 +628,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     target.PrintToChat($"{ChatColors.Green}Healed for {healAmount} HP by {player.PlayerName}!");
                     healed++;
 
+                    GivePlayerPoints(player, Config.PlayerPoints.GiveMedicPouchPoints);
+
                     Item.SetPlayerPickupCooldown(target);
                 }
             }
@@ -674,6 +676,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 {
                     target.PrintToChat($"{ChatColors.Green}Received ammunition from {player.PlayerName}!");
                     supplied++;
+                    GivePlayerPoints(player, Config.PlayerPoints.GiveAmmoPouchPoints);
                     Item.SetPlayerPickupCooldown(target);
                 }
                 
@@ -878,13 +881,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         AddTimer(Config.DroppedAmmoPouchRemoveDelay, () =>
         {
             deployedItem.CleanupEntity();
-            DroppedAmmoPouches.Remove(deployedItem);
+            if(DroppedAmmoPouches.Contains(deployedItem)) DroppedAmmoPouches.Remove(deployedItem);
         });
     }
 
     private void CheckAmmoPouchPickup(CCSPlayerController deployer, DeployedItemInfo deployedItem)
     {
-        if (!deployedItem.IsValid) return;
+        if (!deployedItem.IsValid || deployedItem.Entity == null || !deployedItem.Entity.IsValid) return;
 
         // Ensure it's on the ground (stopped moving/falling) before drawing beacon
         if (deployedItem.BeaconBeams == null && IsEqualVector(deployedItem.Entity.AbsOrigin, deployedItem.Position))
@@ -917,11 +920,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (ammoGiven)
                 {
                     deployedItem.CleanupEntity();
-                    DroppedAmmoPouches.Remove(deployedItem);
+                    if (DroppedAmmoPouches.Contains(deployedItem)) DroppedAmmoPouches.Remove(deployedItem);
+                    return;
                 }
             }
         }
-        deployedItem.Position = deployedItem.Entity.AbsOrigin!; // Update position in case it moved
+        if(DroppedAmmoPouches.Contains(deployedItem))  deployedItem.Position = deployedItem.Entity.AbsOrigin ?? deployedItem.Position; // Update position in case it moved
     }
     /// <summary>
     /// Check for medkit pickup (updated for specific deployed item)
@@ -950,6 +954,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 {
                     player.ExecuteClientCommand("play sounds/buttons/button9.vsnd"); // play sound
                     HealPlayer(player, maxHealth - currentHealth); // Heal to full health over time
+                    GivePlayerPoints(deployer, Config.PlayerPoints.GiveHealPoints);
 
                     // Set pickup cooldown
                     medkitItem.SetPlayerPickupCooldown(player);
@@ -1039,6 +1044,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
                 if (ammoGiven)
                 {
+                    GivePlayerPoints(deployer, Config.PlayerPoints.GiveAmmoPoints);
                     player.PrintToChat($"{ChatColors.Green}Picked up ammo!");
                     if (deployer != player && deployer.IsValid)
                     {

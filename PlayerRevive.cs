@@ -210,6 +210,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (reviveEntry.reviver != null)
         {
+            GivePlayerPoints(reviveEntry.reviver, reviveEntry.ReviverType == ReviverType.Medic ? Config.PlayerPoints.MedicRevivePoints : Config.PlayerPoints.SquadRevivePoints); // Give points to the reviver
             StartShooting(reviveEntry.reviver); // Allow the reviver to shoot again
             var squad = GetPlayerSquad(reviveEntry.reviver);
             if (squad != null) squad.TotalRevives += 1; // Increase squad total revives by 1
@@ -272,7 +273,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         }
     }
-    private CCSPlayerController FindNearestDeadTeammate(CCSPlayerController? player)
+    private CCSPlayerController FindNearestTeammate(CCSPlayerController? player, float maxDistance = 100f, bool DeadOnly = false)
     {
         if (player == null || !player.IsValid || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE)
             return null;
@@ -281,25 +282,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var currentPosition = player.PlayerPawn.Value.AbsOrigin;
 
         // Filter the dead players based on the criteria
-        var nearestDeadTeammate = Utilities.GetPlayers()
-            .Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && !player.IsHLTV && player.TeamNum > 1 && player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE && !IsPlayerGettingRevived(player)) // Not alive and not currently getting revived
+        var nearestTeammate = Utilities.GetPlayers()
+            .Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1  && p != player && (DeadOnly ? p.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE : p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE) && !IsPlayerGettingRevived(p)) // Not alive and not currently getting revived
             .Select(entry => new
             {
                 Player = entry,
                 Distance = CalculateDistanceBetween(currentPosition, entry.PlayerPawn.Value.AbsOrigin) // Use PlayerPawn's AbsOrigin for position
             })
-            .Where(x => x.Distance <= 70) // Distance check
+            .Where(x => x.Distance <= maxDistance) // Distance check
             .OrderBy(x => x.Distance) // Order by distance
             .FirstOrDefault(); // Get the closest
 
-        // Validate that the dead player is still in the game
-        if (nearestDeadTeammate?.Player == null || !nearestDeadTeammate.Player.IsValid ||
-            nearestDeadTeammate.Player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE ||
-            nearestDeadTeammate.Player.Connected != PlayerConnectedState.PlayerConnected)
+        // Validate that the teammate is still in the game
+        if (nearestTeammate?.Player == null || !nearestTeammate.Player.IsValid || nearestTeammate.Player.Connected != PlayerConnectedState.PlayerConnected || (DeadOnly ? nearestTeammate.Player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE : nearestTeammate.Player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE))
         {
             return null;
         }
-        return nearestDeadTeammate.Player; // Return the closest player, or null if none found
+
+        return nearestTeammate.Player; // Return the closest player, or null if none found
     }
     private List<CCSPlayerController> FindNearbyMedicsOrSquadmates(CCSPlayerController? player)
     {
@@ -337,7 +337,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 if (!IsPlayerReviving(player)) // if he not reviving anyone rn
                 {
-                    var DeadTeammate = FindNearestDeadTeammate(player);
+                    var DeadTeammate = FindNearestTeammate(player, 70f, true);
                     if (DeadTeammate != null) // We found nearest reviveable teammate
                     {
                         var reviveType = IsValidForRevive(DeadTeammate, player);
@@ -386,7 +386,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         float yawDiff = Math.Abs(NormalizeAngle(currentAngles.Y - targetAngles.Y));
         
         // Maximum allowed deviation
-        float maxDeviation = 30f; // degrees
+        float maxDeviation = 50f; // degrees
         
         // Only apply correction if player is looking too far away
         if (pitchDiff > maxDeviation || yawDiff > maxDeviation)

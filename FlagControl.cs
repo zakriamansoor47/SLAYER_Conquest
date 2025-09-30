@@ -15,6 +15,7 @@ using System.Text.Json.Serialization;
 using System.Drawing;
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
+using CounterStrikeSharp.API.Modules.Entities;
 
 // Used these to remove compile warnings
 #pragma warning disable CS8600
@@ -224,6 +225,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             Flag.TerroristsInSquare = GetPlayersInSquare(CsTeam.Terrorist, Flag.CaptureSquare);
             Flag.CTerroristsInSquare = GetPlayersInSquare(CsTeam.CounterTerrorist, Flag.CaptureSquare);
+
+            if (Flag.TerroristsInSquare.Count == 0 && Flag.CTerroristsInSquare.Count == 0) continue; // if nobody is in the square then ignore this flag
             
             var filledcolor = Config.CTerroristTeamColor;
             var emptycolor = Config.TerroristTeamColor;
@@ -240,12 +243,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 var text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
                 if (Flag.TerroristsInSquare.Count > Flag.CTerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.Terrorist) text = GenerateLoadingText(Flag.TerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
                 else if (Flag.CTerroristsInSquare.Count > Flag.TerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.CounterTerrorist) text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
-                UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='{filledcolor}'><b>⚠️</b></font> <font class='fontSize-m' color='red'>Threats:</font> {text} <font class='fontSize-s' color='red'></font>", ConvertPlayersListToRecipientFilter(allPlayersInSquare!, true), 0.5f, true);
+                UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='{filledcolor}'><b>⚠️</b></font> <font class='fontSize-m' color='red'>Threats:</font> {text} <font class='fontSize-s' color='red'></font>", ConvertPlayersListToRecipientFilter(allPlayersInSquare!, true), 0.5f, true);
             }
 
             FlagCapturedBy team = FlagCapturedBy.None; // Who currently Capturing the flag
-            if (Flag.TerroristsInSquare.Count == 0 && Flag.CTerroristsInSquare.Count == 0) continue; // if nobody is in the square then ignore this flag
-            else if (Flag.TerroristsInSquare.Count > Flag.CTerroristsInSquare.Count) team = FlagCapturedBy.Terrorist; // if Terrorist Capturing the flag
+            if (Flag.TerroristsInSquare.Count > Flag.CTerroristsInSquare.Count) team = FlagCapturedBy.Terrorist; // if Terrorist Capturing the flag
             else if (Flag.CTerroristsInSquare.Count > Flag.TerroristsInSquare.Count) team = FlagCapturedBy.CounterTerrorist; // if C-Terrorist Capturing the flag
             else continue; // if same number of players of both teams Capturing the flag then ignore this flag
 
@@ -257,11 +259,23 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     filledcolor = Flag.LastCapturedBy == FlagCapturedBy.Terrorist ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
                     var players = Flag.LastCapturedBy == FlagCapturedBy.Terrorist ? Flag.TerroristsInSquare : Flag.CTerroristsInSquare;
                     var text = GenerateLoadingText(Flag.CapturedStatus, 100, 10, '█', '░', filledcolor, emptycolor);
-                    UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='{filledcolor}'>⚑</font> <font class='fontSize-m' color='red'>Flag</font> <font class='fontSize-m' color='Lime'>({Flag.Name}):</font> {text}", ConvertPlayersListToRecipientFilter(players!, true), 0.5f, true);
+                    UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{filledcolor}'>⚑</font> <font class='fontSize-m' color='red'>Flag</font> <font class='fontSize-m' color='Lime'>({Flag.Name}):</font> {text}", ConvertPlayersListToRecipientFilter(players!, true), 0.5f, true);
 
                     Flag.CapturedStatus += captureIncrement;
                     Flag.Model[1].Teleport(new Vector(Flag.Model[1].AbsOrigin.X, Flag.Model[1].AbsOrigin.Y, Flag.Model[1].AbsOrigin.Z + flagPositionIncrement));
-                } // increment CapturedStatus if its not 100 yet
+
+                    foreach (var player in players.Where(p => p != null && p.IsValid))
+                    {
+                        if (PlayerStatuses.ContainsKey(player))
+                        {
+                            if (IsPlayerInAnyFlagSquare(player) == Flag && !PlayerStatuses[player].CaptureCooldown)
+                            {
+                                GivePlayerPoints(player, Config.PlayerPoints.CaptureFlagPoints);
+                                PlayerStatuses[player].LastFlagCaptureTime = Server.CurrentTime;
+                            }    
+                        }
+                    }
+                }
                 else // if CapturedStatus is 100 and still capturing the flag then ignore this flag
                 {
                     continue;
@@ -275,7 +289,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     emptycolor = Flag.LastCapturedBy == FlagCapturedBy.Terrorist ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
                     var players = team == FlagCapturedBy.Terrorist ? Flag.TerroristsInSquare : Flag.CTerroristsInSquare;
                     var text = GenerateLoadingText(100 - Flag.CapturedStatus, 100, 10, '░', '█', filledcolor, emptycolor);
-                    UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='{filledcolor}'>⚑</font> <font class='fontSize-m' color='red'>Flag</font> <font class='fontSize-m' color='Lime'>({Flag.Name}):</font> {text}", ConvertPlayersListToRecipientFilter(players!, true), 0.5f, true);
+                    UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{filledcolor}'>⚑</font> <font class='fontSize-m' color='red'>Flag</font> <font class='fontSize-m' color='Lime'>({Flag.Name}):</font> {text}", ConvertPlayersListToRecipientFilter(players!, true), 0.5f, true);
 
                     Flag.CapturedStatus -= captureIncrement;
                     Flag.Model[1].Teleport(new Vector(Flag.Model[1].AbsOrigin.X, Flag.Model[1].AbsOrigin.Y, Flag.Model[1].AbsOrigin.Z - flagPositionIncrement));
