@@ -70,7 +70,7 @@ SLAYER CaptureTheFlag transforms Counter-Strike 2 into an immersive battlefield 
 | **Assault** | `Shift + E`: Deploy Claymore | - |
 | **Engineer** | `Shift + E`: Deploy Ammo Box | `E`: Deploy Ammo Pouch |
 | **Medic** | `Shift + E`: Deploy Medkit | `E`: Deploy Medical Pouch |
-| **Recon** | `Shift + Ctrl`: Deploy Recon Radio | - |
+| **Recon** | `Shift + E`: Deploy Recon Radio | - |
 
 ### Call-in Attacks
 - **Shift + Ctrl**: Open call-in attack menu (requires points)
