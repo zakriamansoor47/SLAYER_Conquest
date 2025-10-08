@@ -1,4 +1,5 @@
 using CounterStrikeSharp.API.Core;
+using System.ComponentModel.Design.Serialization;
 using System.Text.Json.Serialization;
 
 namespace SLAYER_CaptureTheFlag;
@@ -211,6 +212,46 @@ public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
             AllowMultipleDeployments = false
         }
     };
+    [JsonPropertyName("CallInAttacks")] public List<CallInAttacks> CallInAttacks { get; set; } = new List<CallInAttacks>
+    {
+        new CallInAttacks
+        {
+            Name = "Smoke Barrage",
+            Cost = 1500,
+            MaxCount = -1,
+            IncreaseCostPerUse = 500,
+            Cooldown = 30f,
+            Radius = 250f
+        },
+        new CallInAttacks
+        {
+            Name = "Strategic Beacon",
+            Cost = 9000,
+            MaxCount = 5,
+            IncreaseCostPerUse = 5000,
+            Cooldown = 60f,
+            TotalDuration = 300f,
+        },
+        new CallInAttacks
+        {
+            Name = "Artillery Barrage",
+            Cost = 8000,
+            MaxCount = 5,
+            IncreaseCostPerUse = 8000,
+            Cooldown = 60f,
+            Radius = 1000f, // 1000 units = 25 meters (approx)
+            TotalDuration = 60f
+        },
+        new CallInAttacks
+        {
+            Name = "Guided Missile",
+            Cost = 18000,
+            MaxCount = 3,
+            IncreaseCostPerUse = 10000,
+            Cooldown = 60f,
+            Radius = 1600f // 1600 units = 40 meters (approx)
+        }
+    };
     [JsonPropertyName("PlayerPoints")] public PlayerPoints PlayerPoints { get; set; } = new PlayerPoints();
     [JsonPropertyName("MapList")] public List<string> MapList { get; set; } = new List<string>
     {
@@ -355,5 +396,15 @@ public class PlayerPoints
     public int MedicRevivePoints { get; set; } = 200;
     public int SquadRevivePoints { get; set; } = 150;
 
+}
+public class CallInAttacks
+{
+    public string Name { get; set; } = "";
+    public int Cost { get; set; } = 5000;
+    public int MaxCount { get; set; } = 3;
+    public int IncreaseCostPerUse { get; set; } = 5000;
+    public float Cooldown { get; set; } = 30f;
+    public float Radius { get; set; } = 1000f;
+    public float TotalDuration { get; set; } = 60f;
 }
 

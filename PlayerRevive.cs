@@ -308,7 +308,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var currentPosition = player.PlayerPawn.Value.AbsOrigin;
 
-        // 50 meters = 40 * 39.37 = 1574.8 units (Source engine units)
+        // 40 meters = 40 * 39.37 = 1574.8 units (Source engine units)
         float maxDistance = 1600f;
 
         var nearbyMedics = Utilities.GetPlayers()

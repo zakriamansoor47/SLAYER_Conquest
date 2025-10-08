@@ -59,9 +59,16 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     private PlayerClassType GetPlayerClassType(CCSPlayerController? player)
     {
-        if (player == null || !player.IsValid || !PlayerStatuses.TryGetValue(player, out var playerClass)) return PlayerClassType.Assault;
+        if (player == null || !player.IsValid || !PlayerStatuses.ContainsKey(player))
+        {
+            // Use default class from config
+            if (Enum.TryParse(Config.DefaultPlayerClass, out PlayerClassType configClass) && _classConfigs.ContainsKey(configClass))
+            {
+                return configClass;
+            }
+        }
 
-        return playerClass.ClassType;
+        return PlayerStatuses[player].ClassType;
     }
     private void InitializePlayerClasses()
     {
@@ -99,8 +106,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (!PlayerStatuses.TryGetValue(player, out var playerStatus))
         {
             // Use default class from config
-            if (Enum.TryParse(Config.DefaultPlayerClass, out PlayerClassType configClass) && 
-                _classConfigs.ContainsKey(configClass))
+            if (Enum.TryParse(Config.DefaultPlayerClass, out PlayerClassType configClass) && _classConfigs.ContainsKey(configClass))
             {
                 playerStatus.ClassType = configClass;
             }

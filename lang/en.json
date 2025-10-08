@@ -27,5 +27,5 @@
     "Menu.Confirm":                         "<font color='lime'>Confirm</font>",
     "Menu.Cancel":                          "<font color='red'>Cancel</font>",
     "Menu.Back":                            "<font color='red'>Back</font>",
-    "CenterHtml.Reviving":            "<font color='red'>.:| </font> <font class='fontSize-l' color='lime'>Reviving:</font> <font class='fontSize-l' color='gold'>{0}</font> <font color='red'>|:.</font>"
+    "CenterHtml.Reviving":                  "<font color='red'>.:| </font> <font class='fontSize-l' color='lime'>Reviving:</font> <font class='fontSize-l' color='gold'>{0}</font> <font color='red'>|:.</font>"
 }

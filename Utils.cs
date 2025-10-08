@@ -205,24 +205,52 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             player.TeamNum
         );
     }
-    public void ParticleCreate(string model, Vector startPos, Vector? endPos, QAngle rotation, float duration = -1)
+    public static MemoryFunctionWithReturn<IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, CSmokeGrenadeProjectile> CSmokeGrenadeProjectile_CreateFunc = new(GameData.GetSignature("SmokeGrenadeProjectile"));
+
+    public CSmokeGrenadeProjectile CreateSmokeGrenade(Vector position, QAngle angle, Vector velocity, CBaseCombatCharacter player, CsTeam team)
+    {
+        return CSmokeGrenadeProjectile_CreateFunc.Invoke(
+            position.Handle,
+            angle.Handle,
+            velocity.Handle,
+            velocity.Handle,
+            player.Handle,
+            45,
+            player.TeamNum
+        );
+    }
+
+    public CEnvParticleGlow ParticleCreate(string model, Vector startPos, QAngle rotation, float duration = -1, Color? color = null, float scale = 1.0f, float RadiusScale = 200f, float AlphaScale = 1f, CBaseEntity? parent = null)
     {
         var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
         if (particle == null)
         {
             Server.PrintToConsole($"[Error] Unable to create Particle {model}");
-            return;
+            return null;
         }
         particle.StartActive = true;
         particle.EffectName = model;
-        particle.AlphaScale = 1150f;
-        particle.RadiusScale = 110f;
-        particle.SelfIllumScale = 0.5f;
-        particle.ColorTint = Color.Green;
+        particle.AlphaScale = AlphaScale;
+        particle.RadiusScale = RadiusScale;
+        particle.SelfIllumScale = scale;
+        particle.ColorTint = color ?? Color.Green;
         particle.RenderMode = RenderMode_t.kRenderGlow;
-        particle.Teleport(startPos, null, null);
+
+        if (parent != null)
+        {
+            var cp = Schema.GetFixedArray<uint>(particle.Handle, "CParticleSystem", "m_hControlPointEnts", 64);
+            cp[0] = parent.EntityHandle.Raw;
+            //cp[1] = parent.EntityHandle.Raw;
+            particle.AcceptInput("FollowEntity", parent, particle, "!activator");
+        }
+
+        //particle.AcceptInput("SetControlPoint", value: $"0: {startPos.X} {startPos.Y} {startPos.Z}");
+        //particle.AcceptInput("SetControlPoint", value: $"1: {startPos.X+1} {startPos.Y+1} {startPos.Z+1}");
+
         particle.DispatchSpawn();
         particle.AcceptInput("Start");
+
+        particle.Teleport(startPos, rotation, null);
 
         if (duration != -1)
         {
@@ -234,60 +262,36 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
             });
         }
+        return particle;
     }
-    private void Detonate(CCSPlayerController player, Vector Position, float damage = 100, float radius = 200)
+    public void SpawnExplosion(Vector origin, QAngle rotation, string explosionEffect, string soundEffect, int magnitude = 100, float innerRadius = 100, int radius = 250, int damage = 250)
     {
-        if(player == null || !player.IsValid || Position == null) return;
+        var ent = Utilities.CreateEntityByName<CEnvExplosion>("env_explosion");
+        var physEnt = Utilities.CreateEntityByName<CPhysExplosion>("env_physexplosion");
+        if (ent == null || !ent.IsValid || physEnt == null || !physEnt.IsValid) return;
 
-        var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
-        if (particle?.IsValid is not true) return;
+        ent.Magnitude = magnitude;
+        ent.InnerRadius = innerRadius;
+        ent.RadiusOverride = radius;
+        ent.CreateDebris = true;
+        ent.CustomDamageType = DamageTypes_t.DMG_BLAST;
+        ent.CustomEffectName = explosionEffect;
+        ent.CustomSoundName = soundEffect;
+        ent.DamageForce = damage;
+        physEnt.AffectInvulnerableEnts = true;
+        physEnt.Magnitude = damage;
+        physEnt.PushScale = 1.0f;
+        physEnt.ExplodeOnSpawn = true;
 
-        particle.StartActive = true;
-        particle.EffectName = "particles/explosions_fx/explosion_c4_short.vpcf";
-        particle.AlphaScale = 1150f;
-        particle.RadiusScale = 110f;
-        particle.SelfIllumScale = 0.5f;
-        particle.ColorTint = Color.Green;
-        particle.RenderMode = RenderMode_t.kRenderGlow;
-        particle.Teleport(Position, null, null);
-        particle.DispatchSpawn();
-        particle.AcceptInput("Start");
+        ent.Teleport(origin, rotation, Vector.Zero);
+        physEnt.Teleport(origin, rotation, Vector.Zero);
+        ent.DispatchSpawn();
+        physEnt.DispatchSpawn();
+
+        ent.AcceptInput("Explode", ent);
+        physEnt.AcceptInput("ExplodeAndRemove", physEnt);
+        ParticleCreate(explosionEffect, origin, rotation);
     }
-    /*public void ParticleCreate(string model, Vector startPos, Vector? endPos, QAngle rotation, float duration = -1)
-    {
-        var particle = Utilities.CreateEntityByName<CEnvParticleGlow>("env_particle_glow");
-        if (particle == null)
-        {
-            Server.PrintToConsole($"[Error] Unable to create Particle {model}");
-            return;
-        }
-        particle.StartActive = true;
-        particle.EffectName = model;
-        particle.ColorTint = Color.Green;
-        particle.AlphaScale = 1f;
-        particle.RadiusScale = 1f;
-        particle.RenderMode = RenderMode_t.kRenderGlow;
-        particle.RenderFX = RenderFx_t.kRenderFxFadeOut;
-
-        particle.Teleport(startPos, rotation);
-
-        particle.AcceptInput("SetControlPoint", value: $"0: {startPos}");
-        if (endPos != null) particle.AcceptInput("SetControlPoint", value: $"1: {endPos}");
-
-        particle.DispatchSpawn();
-        particle.AcceptInput("Start");
-
-        if (duration != -1)
-        {
-            AddTimer(duration, () =>
-            {
-                if (particle != null && particle.IsValid)
-                {
-                    particle.Remove();
-                }
-            });
-        }
-    }*/
     public string RemoveWeaponPrefix(string weaponName)
     {
         if (string.IsNullOrEmpty(weaponName)) return weaponName;
@@ -314,6 +318,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         beam.Render = color;
         beam.Width = width;
+        beam.FadeLength = 0; // No fade
 
         beam.Teleport(startPos, QAngle.Zero, Vector.Zero);
         beam.EndPos.X = endPos.X;
@@ -325,14 +330,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return beam;
     }
-    private void DeleteLaserBeams(List<CBeam> LaserBeams)
+    private void RemoveLaserBeams(List<CBeam> LaserBeams)
     {
-        foreach (var beam in LaserBeams)
+        if (LaserBeams == null || LaserBeams.Count == 0) return;
+        
+        foreach (var beam in LaserBeams.Where(beam => beam != null && beam.IsValid))
         {
-            if (beam != null && beam.IsValid)
-            {
-                beam.Remove();
-            }
+            beam.Remove();
         }
         LaserBeams.Clear(); // Clear the list after deleting
     }
@@ -485,14 +489,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         models[0] = model;
         return models;
     }
-    public CPhysicsProp CreateStaticEntity(string modelName, Vector position, QAngle angles, bool takesDamage = false, int health = 100, bool haveCollision = false, bool havePhysics = false, float entityScale = 1.0f)
+    public CPhysicsProp CreateStaticEntity(string modelName, Vector position, QAngle angles, bool takesDamage = false, int health = 100, CollisionGroup collision = CollisionGroup.COLLISION_GROUP_PUSHAWAY, SolidType_t solidType = SolidType_t.SOLID_VPHYSICS, bool havePhysics = false, float entityScale = 1.0f)
     {
         var prop = Utilities.CreateEntityByName<CPhysicsProp>("prop_physics_override");
         if (prop == null)
             return null;
 
         prop.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(prop.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
-        prop.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
+        prop.Collision.SolidType = solidType;
 
         prop.SetModel(modelName);
         prop.Teleport(position, angles, Vector.Zero);
@@ -500,8 +504,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         Server.NextFrame(() =>
         {
-            if (haveCollision) SetEntityCollisionGroup(prop, CollisionGroup.COLLISION_GROUP_PASSABLE_DOOR);
-            else SetEntityCollisionGroup(prop, CollisionGroup.COLLISION_GROUP_PUSHAWAY);
+            SetEntityCollisionGroup(prop, collision);
             if (takesDamage)
             {
                 prop.MaxHealth = health;
@@ -665,6 +668,15 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if (entity != null && entity.IsValid) entity.Remove(); // Remove the glow entity
         }
         glow.Clear(); // Clear the list after removing
+    }
+    public void PrintToChatTeam(CCSPlayerController? player, string message)
+    {
+        if (player == null || !player.IsValid || string.IsNullOrEmpty(message)) return; // Validate
+
+        foreach(var teammate in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.TeamNum == player.TeamNum))
+        {
+            teammate.PrintToChat(message);
+        }
     }
     public void DropWeapon(CCSPlayerController player, string weaponName, bool removeWeapon = true)
     {
@@ -991,32 +1003,62 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         }
     }
+    public List<CBasePlayerWeapon> GetPlayerWeapons(CCSPlayerController? player)
+    {
+        if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.MyWeapons == null)
+            return null;
+
+        var weapons = new List<CBasePlayerWeapon>();
+
+        foreach (var weapon in player!.PlayerPawn!.Value!.WeaponServices!.MyWeapons)
+        {
+            if (weapon != null && weapon.Value != null && weapon.Value.IsValid)
+            {
+                weapons.Add(weapon.Value);
+            }
+        }
+
+        return weapons;
+    }
     public void StopShootingForSpecificTime(CCSPlayerController? player, float Time = -1f)
     {
-        if (player == null || !player.IsValid || player.PlayerPawn.Value == null  || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value == null)
+        if (player == null || !player.IsValid)
             return;
 
-        player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value!.NextPrimaryAttackTick = Server.TickCount + 5000000;
-        Utilities.SetStateChanged(player, "CBasePlayerWeapon", "m_nNextPrimaryAttackTick");
+        var weapons = GetPlayerWeapons(player);
+        if (weapons == null) return;
+        foreach (var weapon in weapons)
+        {
+            if (weapon != null && weapon.IsValid)
+            {
+                weapon.NextPrimaryAttackTick = Server.TickCount + 5000000;
+                Utilities.SetStateChanged(weapon, "CBasePlayerWeapon", "m_nNextPrimaryAttackTick");
+            }
+        }
 
         if (Time > 0f)
         {
             AddTimer(Time, () =>
             {
-                if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value == null)
-                    return;
-                player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value!.NextPrimaryAttackTick = Server.TickCount;
-                Utilities.SetStateChanged(player, "CBasePlayerWeapon", "m_nNextPrimaryAttackTick");
+                StartShooting(player);
             });
         }
     }
     public void StartShooting(CCSPlayerController? player)
     {
-        if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player!.PlayerPawn!.Value!.WeaponServices == null || player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value == null)
+        if (player == null || !player.IsValid)
             return;
 
-        player!.PlayerPawn!.Value!.WeaponServices!.ActiveWeapon!.Value!.NextPrimaryAttackTick = Server.TickCount;
-        Utilities.SetStateChanged(player, "CBasePlayerWeapon", "m_nNextPrimaryAttackTick");
+        var weapons = GetPlayerWeapons(player);
+        if (weapons == null) return;
+        foreach (var weapon in weapons)
+        {
+            if (weapon != null && weapon.IsValid)
+            {
+                weapon.NextPrimaryAttackTick = Server.TickCount;
+                Utilities.SetStateChanged(weapon, "CBasePlayerWeapon", "m_nNextPrimaryAttackTick");
+            }
+        }
     }
     public void SetEntityCollisionGroup(CBaseEntity entity, CollisionGroup group)
     {
@@ -1054,7 +1096,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (player == null || !player.IsValid || player.PlayerPawn.Value == null) return null;
 
-        CGameTrace? trace = player.GetGameTraceByEyePosition(TraceMask.MaskAll, Contents.Sky, player);
+        CGameTrace? trace = player.GetGameTraceByEyePosition(TraceMask.MaskShot, Contents.Sky, player);
 
         if (!trace.HasValue) return null;
 

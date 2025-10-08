@@ -917,35 +917,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var menu = manager.CreateMenu("Deploy Positions", false, false, true, false, false);
 
-        menu.AddOption($"<font color='red'>Deploy Randomly</font>", (p, option) =>
-        {
-            if (!PlayersRedeployTimer.ContainsKey(player))
-            {
-                var randomPosition = GetRandomDeployPosition(player); // Get a random deploy position for the player
-                var spawned = SpawnPlayerAtDeployPosition(player, randomPosition); // Spawn the player at the random deploy position
-                if (spawned) manager.CloseMenu(p);
-            }
-            else
-            {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You cannot redeploy yet! Please wait for {ChatColors.Lime}{PlayersRedeployTimer[player].Item2}s{ChatColors.Red}.");
-            }
-        });
 
-        menu.AddOption($"<font color='gold'>Default Deploy Position</font>", (p, option) =>
+        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player == null && pos.Model != null && pos.Name.Contains("Strategic Beacon"))) // Add strategic beacon deploy positions
         {
-            if (!PlayersRedeployTimer.ContainsKey(player))
+            menu.AddOption($"<font color='aqua'>{position.Name}</font>", (p, option) =>
             {
-                player.Respawn(); // Respawn the player
                 manager.CloseMenu(p);
-            }
-            else
+                ConfirmDeployMenu(player, position, Config.FocusTheDeployCameraOnDeployPosition); // Confirm deploy menu for player deploy positions
+            });
+        }
+        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player == null && pos.Model != null && pos.Name.Contains("Recon Radio"))) // Add recon radio deploy positions
+        {
+            menu.AddOption($"<font color='deepskyblue'>{position.Name}</font>", (p, option) =>
             {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You cannot redeploy yet! Please wait for {ChatColors.Lime}{PlayersRedeployTimer[player].Item2}s{ChatColors.Red}.");
-            }
-        });
-
-        // Add each deploy position to the menu
-        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player != null && pos.Model == null)) // Only add player deploy positions first
+                manager.CloseMenu(p);
+                ConfirmDeployMenu(player, position, Config.FocusTheDeployCameraOnDeployPosition); // Confirm deploy menu for player deploy positions
+            });
+        }
+        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player != null && pos.Model == null)) // add player deploy positions 
         {
             menu.AddOption($"<font color='lime'>{position.Name}</font>", (p, option) =>
             {
@@ -960,14 +949,39 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 ConfirmDeployMenu(player, position, Config.FocusTheDeployCameraOnDeployPosition); // Confirm deploy menu for player deploy positions
             });
         }
-        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player == null && pos.Model != null)) // Then add non-player deploy positions
+        foreach (var position in PlayerDeployPositions[player].Where(pos => pos.Player == null && pos.Model != null && pos.Name.Contains("Flag"))) // add flags deploy positions
         {
-            menu.AddOption($"<font color='orange'>{position.Name}</font>", (p, option) =>
+            menu.AddOption($"<font color='{(player.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{position.Name}</font>", (p, option) =>
             {
                 manager.CloseMenu(p);
                 ConfirmDeployMenu(player, position, Config.FocusTheDeployCameraOnDeployPosition); // Confirm deploy menu for player deploy positions
             });
         }
+        menu.AddOption($"<font color='gold'>Default Deploy Position</font>", (p, option) =>
+        {
+            if (!PlayersRedeployTimer.ContainsKey(player))
+            {
+                player.Respawn(); // Respawn the player
+                manager.CloseMenu(p);
+            }
+            else
+            {
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You cannot redeploy yet! Please wait for {ChatColors.Lime}{PlayersRedeployTimer[player].Item2}s{ChatColors.Red}.");
+            }
+        });
+        menu.AddOption($"<font color='red'>Deploy Randomly</font>", (p, option) =>
+        {
+            if (!PlayersRedeployTimer.ContainsKey(player))
+            {
+                var randomPosition = GetRandomDeployPosition(player); // Get a random deploy position for the player
+                var spawned = SpawnPlayerAtDeployPosition(player, randomPosition); // Spawn the player at the random deploy position
+                if (spawned) manager.CloseMenu(p);
+            }
+            else
+            {
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You cannot redeploy yet! Please wait for {ChatColors.Lime}{PlayersRedeployTimer[player].Item2}s{ChatColors.Red}.");
+            }
+        });
 
         manager.OpenMainMenu(player, menu);
     }
@@ -1133,11 +1147,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var menu = manager.CreateMenu($"<font color='gold'>Best Squad:</font> <font color='lime'>{bestSquad.SquadName}</font>", false, false, true, true, false);
         menu.ParentMenu = parentMenu;
 
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Points: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalPoints}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Kills: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalKills}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Deaths: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalDeaths}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Assists: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalAssists}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Revives: </font><font class='fontSize-m' color='lime'>{bestSquad.TotalRevives}</font>", (p, option) => { });
-        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, null);
+        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), bestSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, (p, option, value) =>
+        {
+            var member = bestSquad.Members.ElementAt(value).Key;
+            if (member != null && member.IsValid)
+            {
+                PrintPlayerStats(member);
+            }
+        });
 
         manager.OpenSubMenu(player, menu);
 
@@ -1156,13 +1178,20 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var playerSquad = GetPlayerSquad(player);
         var menu = manager.CreateMenu($"<font color='gold'>Your Squad:</font> <font color='lime'>{playerSquad.SquadName}</font>", false, false, true, true, false);
         menu.ParentMenu = parentMenu;
-        
 
+        menu.AddOption($"<font class='fontSize-m' color='red'>Total Points: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalPoints}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Kills: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalKills}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Deaths: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalDeaths}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Assists: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalAssists}</font>", (p, option) => { });
         menu.AddOption($"<font class='fontSize-m' color='red'>Total Revives: </font><font class='fontSize-m' color='lime'>{playerSquad.TotalRevives}</font>", (p, option) => { });
-        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, null);
+        menu.AddSliderOption($"<font class='fontSize-m' color='red'>Members:</font>", playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>(), playerSquad.Members.Select(m => PlayerStatuses[m.Key].DefaultName).ToList<object>()[0], 4, (p, option, value) =>
+        {
+            var member = playerSquad.Members.ElementAt(value).Key;
+            if (member != null && member.IsValid)
+            {
+                PrintPlayerStats(member);
+            }
+        });
 
         manager.OpenSubMenu(player, menu);
 
@@ -1171,6 +1200,133 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         UpdateWorldText(worldtext, $"Your Squad:\n{playerSquad.SquadName}", playerSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
         MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (playerSquad, worldtext);
     }
-    
+    public void PrintPlayerStats(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var stats = PlayerStatuses[player];
+        if (stats == null) return;
+
+        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}Your Stats:");
+        player.PrintToChat($"{ChatColors.Gold}Points: {ChatColors.Lime}{stats.TotalPoints}");
+        player.PrintToChat($"{ChatColors.Gold}Kills: {ChatColors.Lime}{stats.TotalKills}");
+        player.PrintToChat($"{ChatColors.Gold}Deaths: {ChatColors.Lime}{stats.TotalDeaths}");
+        player.PrintToChat($"{ChatColors.Gold}Assists: {ChatColors.Lime}{stats.TotalAssists}");
+        player.PrintToChat($"{ChatColors.Gold}Damage Dealt: {ChatColors.Lime}{stats.TotalDamageDealt}");
+        player.PrintToChat($"{ChatColors.Gold}Revives: {ChatColors.Lime}{stats.TotalRevives}");
+    }
+    public void OpenCallInAttackMenu(CCSPlayerController player)
+    {
+        if (player == null || !player.IsValid || !PlayerStatuses.ContainsKey(player)) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        // Stop Shooting
+        StopShootingForSpecificTime(player);
+        var menu = manager.CreateMenu("<font color='gold'>Call-In Attacks</font>", false, true, true, false, true);
+
+        // Add Call-In Attack options
+        foreach (var attack in Config.CallInAttacks)
+        {
+            if(!PlayerStatuses[player].CallInAttacksUsage.ContainsKey(attack.Name)) PlayerStatuses[player].CallInAttacksUsage[attack.Name] = (0, 0);
+
+            menu.AddOption($"<font color='red'>{attack.Name}</font> <font color='lime'>[{attack.Cost + PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1} Points]</font>", (p, option) =>
+            {
+                if(attack.Name != "Smoke Barrage" && IsCallInAttackAlreadyCalledByTeam(attack.Name, player.TeamNum))
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{attack.Name} {ChatColors.Red}has already been called in by your team! {ChatColors.Gold}Wait for it to be {ChatColors.Lime}completed/destroyed");
+                   return;
+                }
+                if (attack.MaxCount > 0 && (PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1 / attack.IncreaseCostPerUse) >= attack.MaxCount)
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{attack.Name} {ChatColors.Red}has reached its maximum usage limit {ChatColors.Lime}({PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1}/{attack.MaxCount})!");
+                    return;
+                }
+                if (PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item2 > Server.CurrentTime)
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}{attack.Name} {ChatColors.Red}is on cooldown! {ChatColors.Gold}You can call it in after {ChatColors.Lime}{(int)(PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item2 + attack.Cooldown - Server.CurrentTime)}s{ChatColors.Red}.");
+                    return;
+                }
+                if (PlayerStatuses[p].TotalCallInPoints >= (attack.Cost + PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1))
+                {
+                    manager.CloseMenu(p);
+                    CallInAttackConfirmationMenu(p, attack);
+                }
+                else
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You do not have enough points to call in {ChatColors.Lime}{attack.Name}{ChatColors.Red}! You need {ChatColors.Lime}{(attack.Cost + PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1) - PlayerStatuses[player].TotalCallInPoints} more points{ChatColors.Red}.");
+                    return;
+                }
+            });
+        }
+        manager.OpenMainMenu(player, menu);
+
+        manager.OnMenuClose += OnCallInAttackMenuClose;
+    }
+    public void OnCallInAttackMenuClose(CCSPlayerController player, IT3Menu menu)
+    {
+        if (player == null || !player.IsValid) return;
+
+        StartShooting(player);
+    }
+    public void CallInAttackConfirmationMenu(CCSPlayerController player, CallInAttacks attack)
+    {
+        if (player == null || !player.IsValid) return;
+
+        var manager = GetMenuManager();
+        if (manager == null) return;
+
+        // Reset call-in attack position
+        PlayerStatuses[player].CallInAttackPosition = Vector.Zero;
+        // Change player's camera position to a high position for better visibility
+        if (attack.Name != "Strategic Beacon") PlayerStatuses[player].PlayerCallInAttackCamera = CreatePlayerCallInAttackCameraProp(player, DeployCameraPosition, new QAngle(90, 0, 0));
+
+        var menu = manager.CreateMenu($"<font color='gold'>{attack.Name} [{attack.Cost + PlayerStatuses[player].CallInAttacksUsage[attack.Name].Item1} Points]</font>", false, false, true, false, false);
+        menu.FreezePlayer = false;
+        if (attack.Name != "Strategic Beacon") menu.FreezePlayer = true; // Freeze player if not Strategic Beacon
+
+        // Stop Shooting
+        StopShootingForSpecificTime(player);
+
+        menu.AddOption($"<font color='lime'>Confirm {attack.Name}</font>", (p, option) =>
+        {
+            if (attack.Name != "Strategic Beacon")
+            {
+                RemoveLaserBeams(PlayerStatuses[player].CallInAttackBeams); // Remove laser beams if any
+                if (PlayerStatuses[player].CallInAttackPosition == Vector.Zero)
+                {
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You must select a position to call in the attack! {ChatColors.Lime}Please ping the position with middle mouse button.");
+                    return;
+                }
+                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera.Remove(); // Remove the call-in attack camera prop
+                player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = ThirdPerson.ContainsKey(player) ? ThirdPerson[player].EntityHandle.Raw : uint.MaxValue;
+                Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+            }
+            else
+            {
+                PlayerStatuses[player].CallInAttackPosition = GetFrontPosition(player.PlayerPawn!.Value!.AbsOrigin, player.PlayerPawn!.Value!.AbsRotation, 15f); // For Strategic Beacon, set the position in front of the player
+            }    
+            StartShooting(player);
+            ExecuteCallInAttack(player, attack, PlayerStatuses[player].CallInAttackPosition);
+            manager.CloseMenu(p);
+        });
+
+        menu.AddOption($"<font color='red'>Cancel</font>", (p, option) =>
+        {
+            RemoveLaserBeams(PlayerStatuses[player].CallInAttackBeams); // Remove laser beams if any
+            if (attack.Name != "Strategic Beacon")
+            {
+                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera.Remove(); // Remove the call-in attack camera prop
+                player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = ThirdPerson.ContainsKey(player) ? ThirdPerson[player].EntityHandle.Raw : uint.MaxValue;
+                Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
+            }
+            StartShooting(player);
+            manager.CloseMenu(p);
+            OpenCallInAttackMenu(p); // Reopen the call-in attack menu
+        });
+
+        manager.OpenMainMenu(player, menu);
+    }
     
 }

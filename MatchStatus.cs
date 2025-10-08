@@ -240,7 +240,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
             // Print best squad details
             var squadMembers = string.Join(", ", MatchStatus.BestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
-            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {MatchStatus.BestSquad.SquadName}</font>", recipientFilter, -1, true);
+            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {MatchStatus.BestSquad.SquadName}</font> <font color='gold'>(Points: {MatchStatus.BestSquad.TotalPoints})</font>", recipientFilter, -1, true);
             UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='silver'>Kills: {MatchStatus.BestSquad.TotalKills}, Assists: {MatchStatus.BestSquad.TotalAssists}, Revives: {MatchStatus.BestSquad.TotalRevives}</font>", recipientFilter, -1, true);
             UpdateCenterMessageLine(4, $"<font class='fontSize-m' color='gold'>{squadMembers}</font>", recipientFilter, -1, true);
         }

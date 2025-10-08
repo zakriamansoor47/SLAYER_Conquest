@@ -33,6 +33,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         public int Id { get; set; } = 0;
         public int TeamNum { get; set; } = 0;
         public string SquadName { get; set; } = "Alpha";
+        public int TotalPoints { get; set; } = 0;
         public int TotalRevives { get; set; } = 0;
         public int TotalKills { get; set; } = 0;
         public int TotalDeaths { get; set; } = 0;

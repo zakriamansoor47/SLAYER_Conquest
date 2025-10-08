@@ -339,7 +339,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
 
         // Create radio entity
-        var radioEntity = CreateStaticEntity("models/slayer/radio/radio.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 100);
+        var radioEntity = CreateStaticEntity("models/slayer/radio/radio.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 200);
         if (radioEntity == null) return false;
 
         // Create new deployed item info
@@ -370,14 +370,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // Set radio duration (5 minutes)
         deployedItem.DeployTimer = AddTimer(300f, () =>
         {
-            // Notify squad and remove from deploy positions
+            // remove from deploy positions
             foreach (var member in playerSquad.Members.Keys)
             {
                 if (member != null && member.IsValid)
                 {
                     if (PlayerDeployPositions.ContainsKey(member))
                     {
-                        PlayerDeployPositions[member].RemoveAll(dp => dp.Name == "Radio");
+                        PlayerDeployPositions[member].RemoveAll(dp => dp.Name == $"Recon Radio: {PlayerStatuses[member].DefaultName}");
                     }
                 }
             }
@@ -417,7 +417,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
 
         // Create medkit entity
-        var medkitEntity = CreateStaticEntity("models/slayer/medic_kit/medic_kit.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 100);
+        var medkitEntity = CreateStaticEntity("models/slayer/medic_kit/medic_kit.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 200);
         if (medkitEntity == null) return false;
 
         // Create new deployed item info
@@ -469,7 +469,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
 
         // Create ammo box entity
-        var ammoBoxEntity = CreateStaticEntity("models/slayer/ammo_box/ammo_box.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 100);
+        var ammoBoxEntity = CreateStaticEntity("models/slayer/ammo_box/ammo_box.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 200);
         if (ammoBoxEntity == null) return false;
 
         // Create new deployed item info
@@ -530,7 +530,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
 
         // Create claymore entity
-        var claymoreEntity = CreateStaticEntity("models/slayer/claymore/claymore.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 100);
+        var claymoreEntity = CreateStaticEntity("models/slayer/claymore/claymore.vmdl", deployPos, player.PlayerPawn.Value.AbsRotation, true, 200);
         if (claymoreEntity == null) return false;
 
         // Create new deployed item info
@@ -700,7 +700,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var positionOffset = GetPositionAtDirection(new Vector(thrower.PlayerPawn.Value?.AbsOrigin.X, thrower.PlayerPawn.Value?.AbsOrigin.Y, thrower.PlayerPawn.Value?.AbsOrigin.Z + 50f), thrower.PlayerPawn.Value?.EyeAngles, 10f);
         var pouchModel = isMedicPouch ? "models/slayer/medic_pouch/medic_pouch.vmdl" : "models/slayer/ammo_pouch/ammo_pouch.vmdl";
         var randomRotation = new QAngle(_random.Next(0, 360), _random.Next(0, 360), 0);
-        var pouchEntity = CreateStaticEntity(pouchModel, positionOffset, randomRotation, false, 100, false, true);
+        var pouchEntity = CreateStaticEntity(pouchModel, positionOffset, randomRotation, false, 100, havePhysics: true);
         if (pouchEntity == null) return false;
 
         // Calculate throw velocity
@@ -859,7 +859,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (playerPos == null || playerAngles == null) return;
 
         // Create ammo pouch entity
-        var ammoPouchEntity = CreateStaticEntity("models/slayer/ammo_pouch/ammo_pouch.vmdl", playerPos, player.PlayerPawn.Value.AbsRotation, true, 100, false, true);
+        var ammoPouchEntity = CreateStaticEntity("models/slayer/ammo_pouch/ammo_pouch.vmdl", playerPos, player.PlayerPawn.Value.AbsRotation, false, 100, havePhysics: true);
         if (ammoPouchEntity == null) return;
 
         // Create new deployed item info
@@ -1098,8 +1098,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 var pos = new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z + 5f);
                 if (distance <= 200f && player.TeamNum != deployer.TeamNum && IsPlayerDetected(pos, playerPos, player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, player.PlayerPawn.Value!.Collision.CollisionGroup, deployer)) // 200 unit lethal radius and only damage enemies which are detected
                 {
-                    int damage = (int)(250 * (1.0f - (distance / 200f))); // Damage falloff
-                    damage = Math.Max(damage, 20); // Minimum 20 damage
+                    int damage = GetDamageOnDistanceBase(distance, 200, 20, 250);
                     if (damage >= player.PlayerPawn.Value.Health) // player will be killed
                     {
                         PlayerStatuses[player].LastKilledWith = "Claymore";
@@ -1108,7 +1107,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_iHealth");
                     if (player.PlayerPawn.Value.Health <= 0)
                     {
-                        player.CommitSuicide(false, true);
+                        player.CommitSuicide(true, true);
                     }
                     //if(deployer.IsValid) deployer.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your claymore has exploded! Damage given to {ChatColors.Yellow}{player.PlayerName}{ChatColors.Green} for {ChatColors.Lime}{damage} HP{(player.PlayerPawn.Value.Health <= 0 ? $"{ChatColors.Green} (KILL)!" : "!")}");
                 }
@@ -1117,11 +1116,21 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
             // Clean up this specific claymore
             claymoreItem.CleanupDeployedEntity(deployedItem);
-            ParticleCreate("particles/explosions_fx/explosion_hegrenade.vpcf", position, null, QAngle.Zero); // create explosion effect
+            // Play explosion effect
+            ParticleCreate("particles/explosions_fx/explosion_hegrenade.vpcf", position, QAngle.Zero);
             ExplodeNearbyClaymores(position, deployer, 200f); // chain reaction for nearby claymores
             
         }
     }
+    public int GetDamageOnDistanceBase(float distance, float maxDistance, int minDamage, int maxDamage)
+    {
+        // First, calculate the falloff based on the full max damage
+        float damage = (float)maxDamage * (1.0f - (distance / maxDistance));
+
+        // Then, clamp the result between minDamage and maxDamage
+        return (int)Math.Clamp(damage, minDamage, maxDamage);
+    }
+
     public void ExplodeNearbyClaymores(Vector position, CCSPlayerController attacker, float radius = 250f)
     {
         if (attacker == null || !attacker.IsValid) return;
@@ -1147,7 +1156,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
             }
         }
-        catch {}
+        catch { }
     }
 
     /// <summary>
@@ -1757,37 +1766,56 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var entity = Utilities.GetEntityFromIndex<CPhysicsProp>((int)caller.Index);
         if (entity == null || !entity.IsValid) return HookResult.Continue;
 
-        // Use the new function to get deployer info
-        var deployerInfo = GetDeployerAndItemByEntity(entity);
-        if (deployerInfo == null) return HookResult.Continue; // Not a deployed item
-
-        var (deployer, item, deployedInfo) = deployerInfo.Value;
-
         var pawn = activator.As<CCSPlayerPawn>();
         if (!pawn.IsValid) return HookResult.Continue;
         if (!pawn.Controller.IsValid || pawn.Controller.Value is null) return HookResult.Continue;
 
-        var attacker = pawn.Controller.Value.As<CCSPlayerController>();
-
-        // Don't allow teammates to damage the item
-        if (attacker.TeamNum == deployer.TeamNum)
+        // Use the new function to get deployer info
+        var deployerInfo = GetDeployerAndItemByEntity(entity);
+        if (deployerInfo != null)  // deployed item
         {
-            entity.Health += entity.MaxHealth - entity.Health; // Reset health to prevent damage
-            Utilities.SetStateChanged(entity, "CBaseEntity", "m_iHealth");
-            return HookResult.Continue;
-        }
+            var (deployer, item, deployedInfo) = deployerInfo.Value;
 
-        // Check if item took significant damage
-        if (entity.MaxHealth - entity.Health > 80)
+            var attacker = pawn.Controller.Value.As<CCSPlayerController>();
+
+            // Don't allow teammates to damage the item
+            if (attacker.TeamNum == deployer.TeamNum)
+            {
+                entity.Health += entity.MaxHealth - entity.Health; // Reset health to prevent damage
+                Utilities.SetStateChanged(entity, "CBaseEntity", "m_iHealth");
+                return HookResult.Continue;
+            }
+
+            // Check if item took significant damage
+            if (entity.MaxHealth - entity.Health >= entity.MaxHealth) // fully destroyed
+            {
+                // Destroy the item
+                item.CleanupDeployedEntity(deployedInfo);
+            }
+        }
+        var callInAttackInfo = GetCallInAttackDeployerAndInfo(entity);
+        if (callInAttackInfo.Item1 != null && callInAttackInfo.Item2 != null) // call-in attack item
         {
-            // Notify players
-            attacker.PrintToChat($"{ChatColors.Green}You destroyed {deployer.PlayerName}'s {item.ItemName}!");
-            deployer.PrintToChat($"{ChatColors.Red}{attacker.PlayerName} destroyed your {item.ItemName}!");
+            var (deployer, attackInfo) = callInAttackInfo;
 
-            // Destroy the item
-            item.CleanupDeployedEntity(deployedInfo);
+            var attacker = pawn.Controller.Value.As<CCSPlayerController>();
+
+            // Don't allow teammates to damage the item
+            if (attacker.TeamNum == deployer.TeamNum)
+            {
+                entity.Health += entity.MaxHealth - entity.Health; // Reset health to prevent damage
+                Utilities.SetStateChanged(entity, "CBaseEntity", "m_iHealth");
+                return HookResult.Continue;
+            }
+
+            // Check if item took significant damage
+            if (entity.MaxHealth - entity.Health >= entity.MaxHealth) // fully destroyed
+            {
+                // Destroy the item
+                attackInfo.CleanupEntities();
+                attackInfo.KillDestroyTimer();
+            }
         }
-
         return HookResult.Continue;
     }
 }

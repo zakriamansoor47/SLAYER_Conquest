@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v8.0": {
-      "CS2TraceRay/1.0.7": {
+      "CS2TraceRay/1.0.8": {
         "dependencies": {
           "CounterStrikeSharp.API": "1.0.337"
         },
@@ -543,7 +543,7 @@
     }
   },
   "libraries": {
-    "CS2TraceRay/1.0.7": {
+    "CS2TraceRay/1.0.8": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
