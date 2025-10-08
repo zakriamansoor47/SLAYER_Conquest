@@ -348,11 +348,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             fileHandler.LoadFlagPositions();
 
-            /*if (MatchStatus.Status == MatchStatusType.Starting)
+            if (MatchStatus.Status == MatchStatusType.Starting)
             {
                 PrepareMatchStart(); // Prepare for match start (reset tickets, squads, etc.)
                 return HookResult.Continue;
-            }*/
+            }
 
             StartMatch(); // Start the match immediately if not already starting
 
@@ -503,7 +503,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     PlayerStatuses[player].Squad = squad;
                 }
             });
-            /*if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
+            if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
             {
                 AddTimer(0.2f, () =>
                 {
@@ -531,7 +531,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     int secondsLeft = (int)Math.Ceiling(remainingTime);
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
                 });
-            }*/
+            }
 
             // Set ThirdPerson mode if enabled and player is not a bot
             if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));

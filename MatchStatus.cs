@@ -270,7 +270,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         });
 
-        /*AddTimer(Config.MatchEndMapChangeDelay + Config.MatchEndShowBestSquadTime, () =>
+        AddTimer(Config.MatchEndMapChangeDelay + Config.MatchEndShowBestSquadTime, () =>
         {
             foreach (var text in MatchStatus.PlayerLookingAtSquadPoseEntities.Values)
             {
@@ -295,7 +295,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     Server.ExecuteCommand($"host_workshop_map {workshopId}");
                 }
             }
-        });*/
+        });
     }
     public void MatchStatusOnTick()
     {
