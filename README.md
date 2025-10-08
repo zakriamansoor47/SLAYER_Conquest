@@ -401,10 +401,6 @@ SLAYER CaptureTheFlag transforms Counter-Strike 2 into an immersive battlefield 
 - **`!ctf_givepoints <player> <amount>`** - Give points to player (Admin only)
 - **`!ctf_takepoints <player> <amount>`** - Remove points from player (Admin only)
 
-### Development Commands
-- **`!teleport <player>`** - Teleport player to aim position (Admin only)
-- **`!test`** - Test artillery barrage at aim position (Admin only)
-
 ## 🏴 Flag Setup Guide
 
 ### Creating Flags
