@@ -129,7 +129,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Vector spawnPosition = position + offset + new Vector(0, 0, 50); // Slightly above the ground
             CreateSmokeGrenade(spawnPosition, QAngle.Zero, new Vector(0, 0, 0), player.Pawn.Value, (CsTeam)player.TeamNum);
         }
-        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {ChatColors.Green}{PlayerStatuses[player].DefaultName} {ChatColors.Gold}deployed {ChatColors.Lime}Smoke Barrage.");
+        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {Localizer["Chat.DeployedSmokeBarrage", PlayerStatuses[player].DefaultName]}");
     }
     public void CreateStrategicBeacon(CCSPlayerController player, CallInAttacks attack, Vector position)
     {
@@ -186,7 +186,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         }
 
-        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {ChatColors.Green}{PlayerStatuses[player].DefaultName} {ChatColors.Gold}deployed {ChatColors.Lime}Strategic Beacon.");
+        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {Localizer["Chat.DeployedStrategicBeacon", PlayerStatuses[player].DefaultName]}");
     }
     /// <summary>
     /// Create artillery barrage with multiple shells spawning with delays
@@ -240,7 +240,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         });
 
-        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {ChatColors.Green}{PlayerStatuses[player].DefaultName} {ChatColors.Gold}called in an {ChatColors.Lime}Artillery Barrage.");
+        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {Localizer["Chat.CalledInArtilleryBarrage", PlayerStatuses[player].DefaultName]}");
     }
     /// <summary>
     /// Spawn individual artillery shell with random position around base spawn
@@ -493,7 +493,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
         });
 
-        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {ChatColors.Green}{PlayerStatuses[player].DefaultName} {ChatColors.Gold}launched a {ChatColors.Lime}Guided Missile.");
+        PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {Localizer["Chat.LaunchedGuidedMissile", PlayerStatuses[player].DefaultName]}");
     }
 
     public bool IsCallInAttackAlreadyCalledByTeam(string attackName, int teamNum)

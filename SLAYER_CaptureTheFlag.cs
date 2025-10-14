@@ -164,12 +164,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                             ThirdPerson.Remove(player); // Remove the player from third-person dictionary with a slight delay
                             player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue; // Reset the camera view entity
                             Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}first-person {ChatColors.Gold}mode.");
+                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.FirstPersonEnabled"]}");
                         }
                         else if (!ThirdPerson.ContainsKey(player)) // If the player is not in third-person mode, switch to third-person
                         {
                             ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
-                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have switched to {ChatColors.Lime}third-person {ChatColors.Gold}mode.");
+                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ThirdPersonEnabled"]}");
                         }
                         AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
                         PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
@@ -203,7 +203,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     if (player.PlayerPawn.Value.MovementServices.ButtonDoublePressed == ParseButtonByName("Forward") && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) && movement.X == 1 && !PlayerStatuses[player].IsSprinting) // player double pressed speed button and also moving forward
                     {
 
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You are now {ChatColors.Lime}Sprinting{ChatColors.Gold}!");
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.Sprinting"]}");
                         player.PlayerPawn.Value.VelocityModifier += Config.PlayerSprintSpeedBoost;// Increase speed by 150%
                         PlayerStatuses[player].IsSprinting = true; // Set the player is sprinting to true
                     }
@@ -529,7 +529,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
                     float remainingTime = MatchStatus.MatchStartTime - Server.CurrentTime;
                     int secondsLeft = (int)Math.Ceiling(remainingTime);
-                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchStartingIn", secondsLeft]}");
                 });
             }
 

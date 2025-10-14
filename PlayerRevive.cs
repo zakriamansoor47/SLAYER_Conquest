@@ -258,7 +258,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             foreach (var medic in FindNearbyMedicsOrSquadmates(player).Where(m => m != null && m.IsValid && m.Connected == PlayerConnectedState.PlayerConnected && m.TeamNum == player.TeamNum && m.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
             {
-                medic.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Blue}{player.PlayerName} {ChatColors.Gold}is requesting a revive from {ChatColors.Lime}{(int)(CalculateDistanceBetween(medic.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsOrigin) / 39.37f)} meters {ChatColors.Gold}away!"); // Notify the medic about the revive request
+                medic.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.PlayerRequestingRevive", player.PlayerName, (int)(CalculateDistanceBetween(medic.PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsOrigin) / 39.37f)]}"); // Notify the medic about the revive request
 
                 // A little blink effect of glow
                 RemoveGlowOnPlayerWhoRequestMedic(player);

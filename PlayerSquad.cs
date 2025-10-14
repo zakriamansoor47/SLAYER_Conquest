@@ -132,7 +132,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             // If no names are available, don't create a new squad
             if (availableSquadNames.Count == 0)
             {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.DarkRed}All squad names are taken! {ChatColors.Gold}Moving you to Spectate.");
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.AllSquadNamesTaken"]}");
                 ChangePlayerTeam(player, CsTeam.Spectator); // Move player to Spectate team
                 return null;
             }
@@ -150,7 +150,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             PlayerSquads.Add(availableSquad);
 
             // Log which team got which squad name for debugging
-            Console.WriteLine($"Created squad '{selectedSquadName}' for team {teamNum} ({(teamNum == 2 ? "T" : "CT")})");
+            Console.WriteLine($"{Localizer["Console.SquadCreated", selectedSquadName, teamNum, (teamNum == 2 ? "T" : "CT")]}");
         }
 
         // Get player's class type, default to Assault if not found
@@ -164,7 +164,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         availableSquad.Members[player] = classType;
 
         // Notify the player
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have joined Squad {ChatColors.Lime}'{availableSquad.SquadName}' {ChatColors.Gold}for team {ChatColors.Lime}{(teamNum == 2 ? "Terrorists" : "Counter-Terrorists")}");
+        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.JoinedSquad", availableSquad.SquadName, (teamNum == 2 ? Localizer["Team.Terrorists"] : Localizer["Team.CounterTerrorists"])]}");
         return availableSquad;
     }
 
@@ -175,7 +175,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if (squad.Members.ContainsKey(player))
             {
                 squad.Members.Remove(player);
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You have left your squad.");
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.LeftSquad"]}");
 
                 // Clean up empty squads
                 if (squad.Members.Count == 0)
@@ -281,24 +281,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var squad = GetPlayerSquad(player);
         if (squad == null)
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}You are not in a squad.");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.NotInSquad"]}");
             return;
         }
 
-        player.PrintToChat($" {ChatColors.DarkRed}==============={Localizer["Chat.Prefix"]}{ChatColors.DarkRed}===============");
-        player.PrintToChat($" {ChatColors.Gold}• Squad Name: {ChatColors.Lime}{squad.SquadName} {ChatColors.Green}(ID: {squad.Id}) {ChatColors.Gold}- Members: {ChatColors.Lime}{squad.Members.Count}/4");
+        player.PrintToChat($" {Localizer["Squad.InfoHeader", Localizer["Chat.Prefix"]]}");
+        player.PrintToChat($" {Localizer["Squad.Name", squad.SquadName, squad.Id, squad.Members.Count]}");
 
         foreach (var member in squad.Members.Where(p => p.Key != null && p.Key.IsValid && p.Key.Connected == PlayerConnectedState.PlayerConnected))
         {
             string className = _classConfigs[member.Value].Name;
-            player.PrintToChat($" {ChatColors.Gold}• {ChatColors.Green}{(PlayerStatuses.ContainsKey(member.Key) && !string.IsNullOrEmpty(PlayerStatuses[member.Key].DefaultName) ? PlayerStatuses[member.Key].DefaultName : member.Key?.PlayerName ?? "UNKNOWN")} {ChatColors.Gold}- {ChatColors.Grey}{className}");
+            player.PrintToChat($" {Localizer["Squad.Member", (PlayerStatuses.ContainsKey(member.Key) && !string.IsNullOrEmpty(PlayerStatuses[member.Key].DefaultName) ? PlayerStatuses[member.Key].DefaultName : member.Key?.PlayerName ?? "UNKNOWN"), className]}");
         }
 
         // Show class composition
         var composition = GetSquadClassComposition(squad);
         string classBreakdown = string.Join(", ", composition.Where(c => c.Value > 0).Select(c => $"{_classConfigs[c.Key].Name}: {c.Value}"));
 
-        player.PrintToChat($" {ChatColors.Gold}• {ChatColors.Red}Class breakdown: {ChatColors.Lime}{classBreakdown}");
-        player.PrintToChat($" {ChatColors.DarkRed}==============={Localizer["Chat.Prefix"]}{ChatColors.DarkRed}===============");
+        player.PrintToChat($" {Localizer["Squad.ClassBreakdown", classBreakdown]}");
+        player.PrintToChat($" {Localizer["Squad.InfoFooter", Localizer["Chat.Prefix"]]}");
     }
 }

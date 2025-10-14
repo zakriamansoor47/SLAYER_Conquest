@@ -117,7 +117,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 // Announce at specific intervals
                 if (secondsLeft > 0 && (secondsLeft % 15 == 0 || secondsLeft <= 5))
                 {
-                    Server.PrintToChatAll($"{Localizer["Chat.Prefix"]} {ChatColors.Red}Match starting in {ChatColors.Lime}{secondsLeft} seconds! {ChatColors.Gold}Prepare yourselves!");
+                    Server.PrintToChatAll($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchStartingIn", secondsLeft]}");
                 }
             }
             

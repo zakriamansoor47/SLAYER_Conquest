@@ -224,7 +224,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             playerItem = PlayerStatuses[player].PlayerItems.FirstOrDefault(x => x.CanUse);
             if (playerItem == null)
             {
-                player.PrintToChat($" {ChatColors.Yellow}No special items are ready to use!");
+                player.PrintToChat($" {Localizer["Chat.NoSpecialItemsReady"]}");
                 return false;
             }
         }
@@ -243,11 +243,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             if (playerItem.IsOnCooldown)
             {
-                player.PrintToChat($" {ChatColors.Yellow}{playerItem.ItemName} is on cooldown! ({playerItem.RemainingCooldown:F1}s remaining)");
+                player.PrintToChat($" {Localizer["Chat.ItemOnCooldown", playerItem.ItemName, $"{playerItem.RemainingCooldown:F1}"]}");
             }
             else if (playerItem.ItemUseCount <= 0)
             {
-                player.PrintToChat($" {ChatColors.Yellow}No uses remaining for {playerItem.ItemName}!");
+                player.PrintToChat($" {Localizer["Chat.NoUsesRemaining", playerItem.ItemName]}");
             }
             return false;
         }
@@ -262,7 +262,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             playerItem.LastItemUseTime = Server.CurrentTime;
 
             var config = Config.SpecialItems[playerItem.ItemName];
-            if (config.MaxCount > 0) player.PrintToChat($" {ChatColors.Green}{playerItem.ItemName} deployed! ({config.MaxCount - playerItem.ItemUseCount}/{config.MaxCount})");
+            if (config.MaxCount > 0) player.PrintToChat($" {Localizer["Chat.ItemDeployed", playerItem.ItemName, config.MaxCount - playerItem.ItemUseCount, config.MaxCount]}");
 
             // Start regeneration timer if applicable
             if (playerItem.ItemRegenerateTime >= 0)
@@ -305,7 +305,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var playerSquad = GetPlayerSquad(player);
         if (playerSquad == null)
         {
-            player.PrintToChat($" {ChatColors.Red}You must be in a squad to deploy a spawn radio!");
+            player.PrintToChat($" {Localizer["Chat.MustBeInSquadForSpawnRadio"]}");
             return false;
         }
 
@@ -522,7 +522,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // Check if we've reached max deployments
         if (config.AllowMultipleDeployments && claymoreItem.ItemUseCount <= 0)
         {
-            player.PrintToChat($" {ChatColors.Yellow}Maximum claymores deployed! ({config.MaxCount})");
+            player.PrintToChat($" {Localizer["Chat.MaxClaymoresDeployed", config.MaxCount]}");
             return false;
         }
 
@@ -583,7 +583,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     // Notify player
                     if (playerItem.ItemUseCount < playerItem.MaxUseCount)
                     {
-                        player.PrintToChat($"{ChatColors.Green}Your {playerItem.ItemName} has regenerated! ({playerItem.ItemUseCount}/{playerItem.MaxUseCount})");
+                        player.PrintToChat($"{Localizer["Chat.ItemRegenerated", playerItem.ItemName, playerItem.ItemUseCount, playerItem.MaxUseCount]}");
                     }
                 }
             }
@@ -625,7 +625,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     int healAmount = Math.Min(50, maxHealth - currentHealth);
                     HealPlayer(target, healAmount);
 
-                    target.PrintToChat($"{ChatColors.Green}Healed for {healAmount} HP by {player.PlayerName}!");
+                    target.PrintToChat($"{Localizer["Chat.HealedBy", healAmount, player.PlayerName]}");
                     healed++;
 
                     GivePlayerPoints(player, Config.PlayerPoints.GiveMedicPouchPoints);
@@ -674,7 +674,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
                 if (itemsGiven)
                 {
-                    target.PrintToChat($"{ChatColors.Green}Received ammunition from {player.PlayerName}!");
+                    target.PrintToChat($"{Localizer["Chat.AmmoReceivedFrom", player.PlayerName]}");
                     supplied++;
                     GivePlayerPoints(player, Config.PlayerPoints.GiveAmmoPouchPoints);
                     Item.SetPlayerPickupCooldown(target);
@@ -685,7 +685,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (supplied > 0)
         {
-            player.PrintToChat($"{ChatColors.Green}Supplied ammunition to {supplied} teammate(s)!");
+            player.PrintToChat($"{Localizer["Chat.SuppliedAmmoToTeammates", supplied]}");
             return true;
         }
 
@@ -1045,10 +1045,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (ammoGiven)
                 {
                     GivePlayerPoints(deployer, Config.PlayerPoints.GiveAmmoPoints);
-                    player.PrintToChat($"{ChatColors.Green}Picked up ammo!");
+                    player.PrintToChat($"{Localizer["Chat.PickedUpAmmo"]}");
                     if (deployer != player && deployer.IsValid)
                     {
-                        deployer.PrintToChat($"{ChatColors.Green}{player.PlayerName} used your ammo box!");
+                        deployer.PrintToChat($"{Localizer["Chat.PlayerUsedYourAmmoBox", player.PlayerName]}");
                     }
 
                     // Set pickup cooldown

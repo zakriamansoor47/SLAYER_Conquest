@@ -180,7 +180,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (spawnPosition == null)
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Red}No valid spawn location found. Try another position.");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.NoValidSpawnLocation"]}");
             return false;
         }
 
@@ -207,7 +207,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     safeSpawnVolume = FindSafeSpawnVolume(closestPlayer.PlayerPawn.Value.AbsOrigin, closestPlayer.PlayerPawn.Value.AbsRotation, closestPlayer);
                     if (safeSpawnVolume != null)
                     {
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a closest teammate to unstuck you.");
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TeleportedToTeammate"]}");
                         player.Pawn.Value!.Teleport(safeSpawnVolume);
                         return;
                     }
@@ -218,24 +218,24 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     safeSpawnVolume = FindSafeSpawnVolume(nearestDeploy.Position, nearestDeploy.Rotation, player);
                     if (safeSpawnVolume != null)
                     {
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a closest deploy position to unstuck you.");
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TeleportedToDeployPosition"]}");
                         player.Pawn.Value!.Teleport(safeSpawnVolume);
                     }
                     else
                     {
-                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}Tried to find a safe location but failed! Teleported you to default spawn to unstuck you.");
+                        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TeleportedToDefaultSpawn"]}");
                         player.Respawn(); // Respawn the player to free them from being stuck if no other option
                     }    
                 }
                 else
                 {
-                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}Tried to find a safe location but failed! Teleported you to default spawn to unstuck you.");
+                    player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TeleportedToDefaultSpawn"]}");
                     player.Respawn(); // Respawn the player to free them from being stuck if no other option
                 }  
             }
             else
             {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Lime}You have been teleported to a safe location nearby to unstuck you.");
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TeleportedToSafeLocation"]}");
                 player.Pawn.Value!.Teleport(safeSpawnVolume); // Teleport the player to the safe spawn volume
             }
         }

@@ -296,7 +296,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
                 if (Flag.CapturedStatus <= 0) // if CapturedStatus reach 0 then update LastCapturedBy to the team who capturing
                 {
-                    if (Flag.LastCapturedBy != team) Server.PrintToChatAll($"{Localizer["Chat.Prefix"]} {ChatColors.White}Flag {(team == FlagCapturedBy.Terrorist ? ChatColors.Orange : ChatColors.Blue)}'{Flag.Name}' {ChatColors.White}is Captured by {(team == FlagCapturedBy.Terrorist ? ChatColors.Orange : ChatColors.Blue)}{(team == FlagCapturedBy.Terrorist ? "Terrorist" : "Counter-Terrorist")}");
+                    if (Flag.LastCapturedBy != team) Server.PrintToChatAll($"{Localizer["Chat.Prefix"]} {Localizer["Chat.FlagCaptured", Flag.Name, (team == FlagCapturedBy.Terrorist ? Localizer["Team.Terrorists"] : Localizer["Team.CounterTerrorists"])]}");
                     Flag.CapturedBy = team;
                     Flag.LastCapturedBy = team;
                     Flag.CapturedStatus += captureIncrement;

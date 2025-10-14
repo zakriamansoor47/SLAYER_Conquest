@@ -114,7 +114,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 // Fallback to Assault if config value is invalid
                 playerStatus.ClassType = PlayerClassType.Assault;
-                Console.WriteLine($"[SLAYER_CaptureTheFlag] Invalid DefaultPlayerClass in config: '{Config.DefaultPlayerClass}', using Assault instead");
+                Console.WriteLine($"{Localizer["Console.InvalidDefaultPlayerClass", Config.DefaultPlayerClass]}");
             }
             
             PlayerStatuses[player].ClassType = playerStatus.ClassType;
@@ -228,7 +228,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         
         // Notify the player
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}Your {ChatColors.Green}{config.Name} {ChatColors.Gold}class has been applied.");
+        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ClassApplied", config.Name]}");
     }
     private void SelectPlayerClass(CCSPlayerController player, PlayerClassType selectedClass)
     {
@@ -263,8 +263,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         else
         {
             // Notify the player
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Gold}You have selected the {ChatColors.Green}{selectedClass} {ChatColors.Gold}class.");
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your class will be applied when you respawn.");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ClassSelected", selectedClass]}");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ClassWillBeAppliedOnRespawn"]}");
         }
     }
     // Print class details to chat
@@ -275,23 +275,23 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var config = _classConfigs[classType];
         
         // Print class header
-        player.PrintToChat($" {ChatColors.Gold}=== {config.Name} Class Details ===");
+        player.PrintToChat($" {Localizer["ClassDetails.Header", config.Name]}");
         // Print description
-        player.PrintToChat($" {ChatColors.Yellow}Description: {ChatColors.Default}{config.Description}");
+        player.PrintToChat($" {Localizer["ClassDetails.Description", config.Description]}");
         // Print stats
-        player.PrintToChat($" {ChatColors.Yellow}Health: {ChatColors.Green}{config.Health}");
-        player.PrintToChat($" {ChatColors.Yellow}Armor: {ChatColors.Green}{config.Armor}" + (config.HasHelmet ? " + Helmet" : ""));
-        player.PrintToChat($" {ChatColors.Yellow}Speed: {ChatColors.Green}{config.Speed}x");
+        player.PrintToChat($" {Localizer["ClassDetails.Health", config.Health]}");
+        player.PrintToChat($" {Localizer["ClassDetails.Armor", config.Armor, (config.HasHelmet ? Localizer["ClassDetails.WithHelmet"] : "")]}");
+        player.PrintToChat($" {Localizer["ClassDetails.Speed", config.Speed]}");
         
         // Print weapons
         string primaryWeapons = string.Join(", ", config.PrimaryWeapons.Select(w => w.Replace("weapon_", "")));
-        player.PrintToChat($" {ChatColors.Yellow}Primary Weapons: {ChatColors.Green}{primaryWeapons}");
+        player.PrintToChat($" {Localizer["ClassDetails.PrimaryWeapons", primaryWeapons]}");
         string secondaryWeapons = string.Join(", ", config.SecondaryWeapons.Select(w => w.Replace("weapon_", "")));
-        player.PrintToChat($" {ChatColors.Yellow}Secondary Weapons: {ChatColors.Green}{secondaryWeapons}");
+        player.PrintToChat($" {Localizer["ClassDetails.SecondaryWeapons", secondaryWeapons]}");
         string equipment = string.Join(", ", config.Equipment.Select(w => w.Replace("weapon_", "")));
-        player.PrintToChat($" {ChatColors.Yellow}Equipment: {ChatColors.Green}{equipment}");
+        player.PrintToChat($" {Localizer["ClassDetails.Equipment", equipment]}");
         
-        player.PrintToChat($" {ChatColors.Gold}=== {config.Name} Class Details ===");
+        player.PrintToChat($" {Localizer["ClassDetails.Footer", config.Name]}");
     }
 
 }

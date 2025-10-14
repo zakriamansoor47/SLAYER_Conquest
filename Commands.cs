@@ -80,7 +80,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         if (!matches.Any())
         {
-            command.ReplyToCommand($"{Localizer["Chat.Prefix"]} No target found!");
+            command.ReplyToCommand($"{Localizer["Chat.Prefix"]} {Localizer["Chat.NoTargetFound"]}");
             return null;
         }
 
@@ -90,7 +90,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         else if (matches.Count() == 1 || !command.GetArg(1).StartsWith('@'))
             return matches;
 
-        command.ReplyToCommand($"{Localizer["Chat.Prefix"]} Multi target found!");
+        command.ReplyToCommand($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MultiTargetFound"]}");
         return null;
     }
     [ConsoleCommand("ctf_start", "Start the match immediately")]
@@ -124,19 +124,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             if (!int.TryParse(command.GetArg(2), out points))
             {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} Invalid points value");
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.InvalidPointsValue"]}");
                 return;
             }
         }
 
         if (points <= 0)
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} Points must be greater than 0");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.PointsMustBeGreaterThanZero"]}");
             return;
         }
 
         GivePlayerCallInPoints(targetPlayer, points);
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} Gave {points} points to {PlayerStatuses[targetPlayer].DefaultName}");
+        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.GavePoints", points, PlayerStatuses[targetPlayer].DefaultName]}");
     }
     [ConsoleCommand("ctf_takepoints", "Take points from a player")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
@@ -152,18 +152,18 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         {
             if (!int.TryParse(command.GetArg(2), out points))
             {
-                player.PrintToChat($"{Localizer["Chat.Prefix"]} Invalid points value");
+                player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.InvalidPointsValue"]}");
                 return;
             }
         }
 
         if (points <= 0)
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} Points must be greater than 0");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.PointsMustBeGreaterThanZero"]}");
             return;
         }
 
         TakePlayerCallInPoints(targetPlayer, points);
-        player.PrintToChat($"{Localizer["Chat.Prefix"]} Took {points} points from {PlayerStatuses[targetPlayer].DefaultName}");
+        player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.TookPoints", points, PlayerStatuses[targetPlayer].DefaultName]}");
     }
 }
