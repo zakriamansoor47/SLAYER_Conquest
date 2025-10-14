@@ -350,7 +350,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             if (MatchStatus.Status == MatchStatusType.Starting)
             {
-                PrepareMatchStart(); // Prepare for match start (reset tickets, squads, etc.)
+                AddTimer(0.1f, PrepareMatchStart); // Prepare for match start (reset tickets, squads, etc.)
                 return HookResult.Continue;
             }
 
@@ -454,7 +454,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (manager != null) manager.CloseMenu(player); // Close any open menu for the player
             }
             catch { }
-            SetPlayerScale(player, 1f); // Reset player scale to normal
+            
 
             if (!PlayerStatuses.ContainsKey(player))
             {
@@ -495,6 +495,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.Pawn.Value!.LifeState != (byte)LifeState_t.LIFE_ALIVE) return; // Check if the player is connected and in a valid team
                 if (!PlayerStatuses.ContainsKey(player)) PlayerStatuses[player] = new PlayerStatus();
+                SetPlayerScale(player, 1f); // Reset player scale to normal
                 ApplyPlayerClass(player);
                 var squad = AddPlayerToSquad(player, player.TeamNum);
                 if (squad != null) ShowSquadInfo(player);
@@ -507,6 +508,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 AddTimer(0.2f, () =>
                 {
+                    if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected) return;
+                    
                     SetPlayerNameAndClan(player);
                     if (!player.IsBot) OpenPlayerClassMenu(player); // Open the player class selection menu
                     FreezePlayer(player);
@@ -534,7 +537,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
 
             // Set ThirdPerson mode if enabled and player is not a bot
-            if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing && !player.IsBot && ThirdPerson.ContainsKey(player)) AddTimer(0.3f, () => ThirdPerson[player] = SetThirdPerson(player));
+            if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing) 
+            {
+                AddTimer(0.3f, () => 
+                {
+                    if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected) return;
+                    if (!player.IsBot && ThirdPerson.ContainsKey(player)) ThirdPerson[player] = SetThirdPerson(player);
+                });
+            }
 
 
             return HookResult.Continue;

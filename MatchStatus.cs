@@ -223,12 +223,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         // Announce the match result
         ClearAllCenterMessageLines(); // Clear any existing center message lines
-        UpdateCenterMessageLine(1, $"<font class='fontSize-m' color='{(MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor)}'>{Winner} Win</font>", recipientFilter, -1, true);
+        var winnerColor = MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
+        UpdateCenterMessageLine(1, Localizer["CenterHtml.WinnerAnnouncement", winnerColor, Winner], recipientFilter, -1, true);
         MatchStatus.BestSquad = GetBestSquad();
         // Calculate text position in front of camera
         var pos = CalculateTextPosition();
         var color = MatchStatus.BestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
-        var worldtext = CreateWorldText($"Best Squad:\n{MatchStatus.BestSquad.SquadName}", pos.Item1, pos.Item2, 30, color, "Orbitron", true);
+        var worldtext = CreateWorldText(Localizer["CenterHtml.BestSquad", MatchStatus.BestSquad.SquadName], pos.Item1, pos.Item2, 30, color, "Orbitron", true);
         if (MatchStatus.BestSquad != null)
         {
             // Create player pose entities for the best squad, and If the best squad is the winning team, play victory animations, else play defeat animations
@@ -240,9 +241,9 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             }
             // Print best squad details
             var squadMembers = string.Join(", ", MatchStatus.BestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
-            UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='lime'>Best Squad: {MatchStatus.BestSquad.SquadName}</font> <font color='gold'>(Points: {MatchStatus.BestSquad.TotalPoints})</font>", recipientFilter, -1, true);
-            UpdateCenterMessageLine(3, $"<font class='fontSize-m' color='silver'>Kills: {MatchStatus.BestSquad.TotalKills}, Assists: {MatchStatus.BestSquad.TotalAssists}, Revives: {MatchStatus.BestSquad.TotalRevives}</font>", recipientFilter, -1, true);
-            UpdateCenterMessageLine(4, $"<font class='fontSize-m' color='gold'>{squadMembers}</font>", recipientFilter, -1, true);
+            UpdateCenterMessageLine(2, Localizer["CenterHtml.BestSquadName", MatchStatus.BestSquad.SquadName, MatchStatus.BestSquad.TotalPoints], recipientFilter, -1, true);
+            UpdateCenterMessageLine(3, Localizer["CenterHtml.BestSquadStats", MatchStatus.BestSquad.TotalKills, MatchStatus.BestSquad.TotalAssists, MatchStatus.BestSquad.TotalRevives], recipientFilter, -1, true);
+            UpdateCenterMessageLine(4, Localizer["CenterHtml.BestSquadMembers", squadMembers], recipientFilter, -1, true);
         }
         // Select a random map from the map list for changing after match end
         var map = GetRandomMapsFromList(Config.MapList, 1)[0];
@@ -250,7 +251,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         AddTimer(Config.MatchEndShowBestSquadTime, () =>
         {
-            if (MatchStatus.Status != MatchStatusType.CounterTerroristWin || MatchStatus.Status != MatchStatusType.TerroristWin) return; // If the match is restarted somehow, don't proceed
+            if (MatchStatus.Status != MatchStatusType.CounterTerroristWin && MatchStatus.Status != MatchStatusType.TerroristWin) return; // If the match is restarted somehow, don't proceed
             ClearAllCenterMessageLines(); // Clear Best Squad message lines after 5 seconds
             foreach (var player in recipientFilter) // Open Match End Menu
             {
@@ -262,8 +263,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (squad != null && !MatchStatus.PoseEntities.ContainsKey(squad))
                 {
                     MatchStatus.PoseEntities[squad] = CreateMatchEndPlayerPoseEntities(squad, squad.TeamNum == 2 ? MatchStatus.Status == MatchStatusType.TerroristWin : MatchStatus.Status == MatchStatusType.CounterTerroristWin, null);
-                    var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2 == null ? CreateWorldText($"Your Squad:\n{squad.SquadName}", pos.Item1, pos.Item2, 30, color, "Orbitron", true) : MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
-                    UpdateWorldText(worldtext, $"Your Squad:\n{squad.SquadName}", squad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+                    var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2 == null ? CreateWorldText(Localizer["CenterHtml.YourSquad", squad.SquadName], pos.Item1, pos.Item2, 30, color, "Orbitron", true) : MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
+                    UpdateWorldText(worldtext, Localizer["CenterHtml.YourSquad", squad.SquadName], squad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
                     MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (squad, worldtext);
                 }
             }
@@ -451,8 +452,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var positionInFront = GetFrontPosition(entityPosition, faceCameraAngles, 20f);
             var textEntityPosition = new Vector(positionInFront.X, positionInFront.Y, positionInFront.Z + 40f);
             var color = member.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
-            var message = $"{PlayerStatuses[member].DefaultName} ({PlayerStatuses[member].ClassType})\nKills: {PlayerStatuses[member].TotalKills}\nDeaths: {PlayerStatuses[member].TotalDeaths}\nAssists: {PlayerStatuses[member].TotalAssists}\nRevives: {PlayerStatuses[member].TotalRevives}";
-            if (includePlayer != null) message = $"{PlayerStatuses[member].DefaultName} ({PlayerStatuses[member].ClassType})";
+            var message = Localizer["World.PlayerStats", PlayerStatuses[member].DefaultName, PlayerStatuses[member].ClassType, PlayerStatuses[member].TotalKills, PlayerStatuses[member].TotalDeaths, PlayerStatuses[member].TotalAssists, PlayerStatuses[member].TotalRevives];
+            if (includePlayer != null) message = Localizer["World.PlayerStatsShort", PlayerStatuses[member].DefaultName, PlayerStatuses[member].ClassType];
             var NameTextEntity = CreateWorldText(message, textEntityPosition, new QAngle(0, faceCameraAngles.Y+90, 90), 30, color, "Orbitron", true);
 
             var poseInfo = new PoseEntityInfo
