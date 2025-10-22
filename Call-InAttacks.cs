@@ -619,7 +619,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         missile.Teleport(null, missile.AbsRotation, velocity); // Use existing rotation
         
         // Play approach sound
-        if (missileStatus.EndTime - Server.CurrentTime <= 12.7f)
+        if (missileStatus.EndTime - Server.CurrentTime <= 12.3f)
         {
             missileStatus.EndTime = Server.CurrentTime + 30f;
             
@@ -651,7 +651,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // Distance-based adjustments for flight profile
         float distanceMultiplier;
         if (distanceToTarget >= 10000f) // Extreme range - very slow approach
-            distanceMultiplier = 0.3f;
+            distanceMultiplier = 0.25f;
         else if (distanceToTarget > 9000f) // Long range - slow cruise
             distanceMultiplier = 0.4f;
         else if (distanceToTarget > 8000f) // Long range - slow cruise

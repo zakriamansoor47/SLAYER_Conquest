@@ -149,8 +149,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             };
             PlayerSquads.Add(availableSquad);
 
-            // Log which team got which squad name for debugging
-            Console.WriteLine($"{Localizer["Console.SquadCreated", selectedSquadName, teamNum, (teamNum == 2 ? "T" : "CT")]}");
         }
 
         // Get player's class type, default to Assault if not found

@@ -151,7 +151,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     }
     public void TakeDamage(CCSPlayerController? client, CCSPlayerController? attacker = null, int damage = 1)
     {
-        if (client == null || !client.IsValid || client.Connected != PlayerConnectedState.PlayerConnected ) return;
+        if(client == null || !client.IsValid || client.Connected != PlayerConnectedState.PlayerConnected || client.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE)return;
         var size = Schema.GetClassSize("CTakeDamageInfo");
         var ptr = Marshal.AllocHGlobal(size);
 
@@ -161,14 +161,14 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         var damageInfo = new CTakeDamageInfo(ptr);
         CAttackerInfo attackerInfo;
 
-        if (attacker == null)
+        if(attacker == null)
             attackerInfo = new CAttackerInfo(client);
         else
             attackerInfo = new CAttackerInfo(attacker);
 
         Marshal.StructureToPtr(attackerInfo, new IntPtr(ptr.ToInt64() + 0x98), false);
 
-        if (attacker == null)
+        if(attacker == null)
         {
             Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hInflictor", client.Pawn.Raw);
             Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hAttacker", client.Pawn.Raw);
@@ -179,11 +179,20 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hAttacker", attacker.Pawn.Raw);
         }
 
-        damageInfo.Damage = damage * 2;
+        damageInfo.Damage = damage;
 
         if (client.Pawn.Value == null) return;
+        
+        var damageResult = new CTakeDamageResult(ptr);
+        Schema.SetSchemaValue(damageResult.Handle, "CTakeDamageResult", "m_pOriginatingInfo", damageInfo.Handle);
+        damageResult.HealthLost = damage;
+        damageResult.DamageDealt = damage;
+        damageResult.PreModifiedDamage = damage;
+        damageResult.TotalledHealthLost = damage;
+        damageResult.TotalledDamageDealt = damage;
+        damageResult.WasDamageSuppressed = false;
 
-        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Invoke(client.Pawn.Value, damageInfo);
+        VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Invoke(client.Pawn.Value, damageInfo, damageResult);
         Marshal.FreeHGlobal(ptr);
     }
     public static string heGrenadeProjectileWindowsSig = @"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 48 83 EC ? 48 8B 6C 24 ? 49 8B F8 4C 8B C2 0F 29 74 24";

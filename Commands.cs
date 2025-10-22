@@ -40,13 +40,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         CTFSettingsMenu(player);
     }
-    [ConsoleCommand("test", "Test command")]
+    /*[ConsoleCommand("test", "Test command")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void CreateEntityCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
 
-        CreateArtilleryBarrage(player, Config.CallInAttacks[2], GetPlayerAimPosition(player) ?? player.Pawn.Value.AbsOrigin);
+        CreateGuidedMissile(player, Config.CallInAttacks[3], GetPlayerAimPosition(player) ?? player.Pawn.Value.AbsOrigin);
     }
     [ConsoleCommand("teleport", "Teleport the player to a specific location")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
@@ -62,7 +62,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (targetPlayer == null) return;
 
         targetPlayer.Pawn.Value!.Teleport(position);
-    }
+    }*/
     private CCSPlayerController? GetTarget(CCSPlayerController player, CommandInfo commandInfo)
     {
         if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.LifeState != (byte)LifeState_t.LIFE_ALIVE) return null;

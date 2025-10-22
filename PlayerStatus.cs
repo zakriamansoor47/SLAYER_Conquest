@@ -92,11 +92,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (PlayerStatuses[player].TotalCallInPoints < 0) PlayerStatuses[player].TotalCallInPoints = 0; // Prevent negative points
         player.InGameMoneyServices!.Account -= points; // Take money (points) from player. We using money as call in points
         Utilities.SetStateChanged(player, "CCSPlayerController", "m_pInGameMoneyServices");
-        var squad = PlayerStatuses[player].Squad; // Also add points to squad
-        if (squad != null)
-        {
-            squad.TotalPoints -= points;
-        }
     }
     public int GetPlayerPoints(CCSPlayerController player)
     {
