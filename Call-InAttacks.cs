@@ -619,7 +619,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         missile.Teleport(null, missile.AbsRotation, velocity); // Use existing rotation
         
         // Play approach sound
-        if (missileStatus.EndTime - Server.CurrentTime <= 12.3f)
+        if (missileStatus.EndTime - Server.CurrentTime <= 13f)
         {
             missileStatus.EndTime = Server.CurrentTime + 30f;
             

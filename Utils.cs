@@ -179,6 +179,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             Schema.SetSchemaValue(damageInfo.Handle, "CTakeDamageInfo", "m_hAttacker", attacker.Pawn.Raw);
         }
 
+        damage *= 2; // CS2 damage scaling
         damageInfo.Damage = damage;
 
         if (client.Pawn.Value == null) return;
@@ -195,7 +196,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         VirtualFunctions.CBaseEntity_TakeDamageOldFunc.Invoke(client.Pawn.Value, damageInfo, damageResult);
         Marshal.FreeHGlobal(ptr);
     }
-    public static string heGrenadeProjectileWindowsSig = @"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 48 83 EC ? 48 8B 6C 24 ? 49 8B F8 4C 8B C2 0F 29 74 24";
+    /*public static string heGrenadeProjectileWindowsSig = @"48 89 5C 24 ? 48 89 6C 24 ? 48 89 74 24 ? 57 48 83 EC ? 48 8B 6C 24 ? 49 8B F8 4C 8B C2 0F 29 74 24";
 
     public static string heGrenadeProjectileLinuxSig = @"55 4C 89 C1 48 89 E5 41 57 49 89 FF 41 56 49 89";
 
@@ -213,7 +214,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             44, // HE grenade weapon ID
             player.TeamNum
         );
-    }
+    }*/
     public static MemoryFunctionWithReturn<IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, CSmokeGrenadeProjectile> CSmokeGrenadeProjectile_CreateFunc = new(GameData.GetSignature("SmokeGrenadeProjectile"));
 
     public CSmokeGrenadeProjectile CreateSmokeGrenade(Vector position, QAngle angle, Vector velocity, CBaseCombatCharacter player, CsTeam team)
@@ -1077,7 +1078,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         entity.Collision.CollisionGroup = (byte)group;
         entity.Collision.CollisionAttribute.CollisionGroup = (byte)group;
 
-        int vtableIndex = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? 188 : 189;
+        int vtableIndex = GameData.GetOffset("CollisionRulesChanged");
         var collisionRulesChanged = new VirtualFunctionVoid<nint>(entity.Handle, vtableIndex);
         collisionRulesChanged.Invoke(entity.Handle);
 

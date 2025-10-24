@@ -1109,7 +1109,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     {
                         player.CommitSuicide(true, true);
                     }
-                    //if(deployer.IsValid) deployer.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your claymore has exploded! Damage given to {ChatColors.Yellow}{player.PlayerName}{ChatColors.Green} for {ChatColors.Lime}{damage} HP{(player.PlayerPawn.Value.Health <= 0 ? $"{ChatColors.Green} (KILL)!" : "!")}");
+                    //if(deployer.IsValid) deployer.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your claymore has exploded! Damage given to {ChatColors.Yellow}{player.PlayerName}{ChatColors.Green} for {ChatColors.Lime}{damage}|{player.PlayerPawn.Value.Health} HP{(player.PlayerPawn.Value.Health <= 0 ? $"{ChatColors.Green} (KILL)!" : "!")}");
                 }
                 // Play sound for all nearby players
                 deployedItem.Entity.EmitSound("BaseGrenade.Explode", new RecipientFilter { player }, volume); // play explosion sound

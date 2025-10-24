@@ -1,4 +1,10 @@
 {
+    "CollisionRulesChanged": {
+        "offsets": {
+        "windows": 191,
+        "linux": 190
+        }
+    },
     "SmokeGrenadeProjectile": {
         "signatures": {
         "library": "server",
