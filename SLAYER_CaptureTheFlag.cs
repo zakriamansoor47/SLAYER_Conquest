@@ -65,9 +65,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     public Dictionary<CCSPlayerController, List<PlayerGlow>> PlayerSeeableGlow = new Dictionary<CCSPlayerController, List<PlayerGlow>>();
     public Dictionary<CBasePlayerWeapon, float> RemoveDropWeaponTimer = new Dictionary<CBasePlayerWeapon, float>();
     public Timer? UpdatePlayerStatesTimer = null;
+    public int TickCounter = 0;
+    public List<CCSPlayerController> activePlayers = new List<CCSPlayerController>();
     private readonly MemoryFunctionVoid<CCSPlayerPawn, CBasePlayerWeapon> CCSPlayer_HandleDropWeapon = new(GameData.GetSignature("CCSPlayerController_HandleCommandDrop"));
     public override void Load(bool hotReload)
     {
+        activePlayers.Clear();
         CCSPlayer_HandleDropWeapon.Hook(WeaponDrop_Hook, HookMode.Pre);
 
         ResetMatchStatusStuff();
@@ -116,12 +119,19 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         });
         RegisterListener<Listeners.OnMapStart>((mapname) =>
         {
+            activePlayers.Clear();
+            TickCounter = 0;
             ResetMatchStatusStuff();
             ClearStuff(); // Clear all previous data
             PlayerStatuses.Clear();
         });
         RegisterListener<Listeners.OnTick>(() =>
         {
+            if (TickCounter >= 3)
+            {
+                activePlayers = Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1).ToList();
+                TickCounter = 0;
+            }
             // Print center message on tick, if any
             PrintCenterMessageTick();
             // Match status on tick
@@ -150,8 +160,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 }
 
                 // Handle player inputs for special actions
-                foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && p.TeamNum > 1 && p.Pawn.Value != null && p.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && PlayerStatuses.ContainsKey(p)))
+                if (activePlayers.Count <= 0) return;
+                foreach (var player in activePlayers)
                 {
+                    if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || !PlayerStatuses.ContainsKey(player)) continue;
+                    
                     if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera.IsValid)
                     {
                         PlayerStatuses[player].PlayerCallInAttackCamera.Teleport(DeployCameraPosition, player.PlayerPawn.Value.V_angle); // Teleport Camera prop to the deploy camera position
@@ -216,6 +229,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     }
                 }
             }
+            TickCounter++;
         });
         RegisterListener<Listeners.CheckTransmit>((CCheckTransmitInfoList infoList) =>
         {
@@ -253,7 +267,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
                 {
                     // Hide all players from this player, except themselves cause that breaks stuff
-                    foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
+                    foreach (var p in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
                     {
                         info.TransmitEntities.Remove(p.PlayerPawn.Value.Index);
                     }
@@ -380,7 +394,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             {
                 UpdateSpecialItemsRegeneration(); // Regenerate special items if applicable
                 UpdateReviveStatus(); // Update revive status every second
-                foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+                foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
                 {
                     if (PlayerStatuses.ContainsKey(player))
                     {
@@ -427,7 +441,13 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
             // Reset all players' special items
             ResetAllPlayersSpecialItems();
-
+            AddTimer(0.5f, () =>
+            {
+                foreach (var entity in Utilities.GetAllEntities().Where(e => e != null && e.IsValid && e.DesignerName != null && e.DesignerName == "env_gradient_fog" || e.DesignerName == "env_cubemap_fog"))
+                {
+                    entity.Remove();
+                }
+            });
             return HookResult.Continue;
         });
         RegisterEventHandler<EventPlayerPing>((@event, @info) =>
@@ -447,7 +467,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var player = @event.Userid;
             if (player == null || !player.IsValid) return HookResult.Continue;
 
-
+            ColorScreen(player, Color.Black, 0.2f, 0.5f, FadeFlags.FADE_OUT);
             try
             {
                 var manager = GetMenuManager();
@@ -504,7 +524,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                     PlayerStatuses[player].Squad = squad;
                 }
             });
-            if (MatchStatus.Status == MatchStatusType.Starting) // If the match is starting, set player status to alive
+            if (MatchStatus.Status == MatchStatusType.Starting && GetGameRules() != null && GetGameRules().WarmupPeriod == false) // If the match is starting, set player status to alive
             {
                 AddTimer(0.2f, () =>
                 {
@@ -579,8 +599,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             var assister = @event.Assister;
 
             if (player == null || !player.IsValid || player.Pawn.Value == null) return HookResult.Continue;
-
-
+            
             // Update squads and player stats
             if (PlayerStatuses.ContainsKey(player))
             {

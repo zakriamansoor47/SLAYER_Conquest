@@ -369,22 +369,6 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         Schema.SetSchemaValue(player.PlayerPawn.Value.Handle, "CBaseEntity", "m_nActualMoveType", 2); // walk
         Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_MoveType");
     }
-    private readonly WIN_LINUX<int> OnCollisionRulesChangedOffset = new WIN_LINUX<int>(173, 172);
-    public void SetNoblock(CCSPlayerController? player, bool noblock = true)
-    {
-        if (player == null || !player.IsValid) return;
-
-        Server.NextFrame(() =>
-        {
-            if (player == null || !player.IsValid) return;
-
-            player.PlayerPawn.Value.Collision.CollisionGroup = (byte)(noblock ? CollisionGroup.COLLISION_GROUP_DEBRIS : CollisionGroup.COLLISION_GROUP_PLAYER);
-            player.PlayerPawn.Value.Collision.CollisionAttribute.CollisionGroup = (byte)(noblock ? CollisionGroup.COLLISION_GROUP_DEBRIS : CollisionGroup.COLLISION_GROUP_PLAYER);
-            var collisionRulesChanged = new VirtualFunctionVoid<nint>(player.PlayerPawn.Value.Handle, OnCollisionRulesChangedOffset.Get());
-            collisionRulesChanged.Invoke(player.PlayerPawn.Value.Handle);
-            Utilities.SetStateChanged(player.PlayerPawn.Value, "CCollisionProperty", "m_collisionAttribute");
-        });
-    }
     public class WIN_LINUX<T>
     {
         [JsonPropertyName("Windows")]
@@ -627,7 +611,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         return models;
     }
-    public List<CDynamicProp> SetGlowOnEntity(CBaseEntity? entity, Color color, string BodyGroup = "", int GlowRangeMin = 1, int GlowRangeMax = 5000, int GlowTeam = -1)
+    public List<CDynamicProp> SetGlowOnEntity(CBaseEntity? entity, Color color, string BodyGroup = "", int GlowRangeMin = 0, int GlowRangeMax = 5000, int GlowTeam = -1)
     {
         if (entity == null || !entity.IsValid)
             return null; // Validate
@@ -655,10 +639,11 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         //modelGlow.RenderMode = RenderMode_t.kRenderGlow;
         modelGlow.Render = Color.FromArgb(1, 255, 255, 255);
         modelGlow.Glow.GlowColorOverride = color;
+        //modelGlow.Glow.GlowRangeMin = GlowRangeMin;
         modelGlow.Glow.GlowRange = GlowRangeMax;
         modelGlow.Glow.GlowTeam = GlowTeam;
         modelGlow.Glow.GlowType = 3;
-        modelGlow.Glow.GlowRangeMin = GlowRangeMin;
+        
 
         modelRelay.AcceptInput("FollowEntity", entity, modelRelay, "!activator");
         modelGlow.AcceptInput("FollowEntity", modelRelay, modelGlow, "!activator");
@@ -678,6 +663,42 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             if (entity != null && entity.IsValid) entity.Remove(); // Remove the glow entity
         }
         glow.Clear(); // Clear the list after removing
+    }
+    public void BlindPlayer(CCSPlayerController player, Color color, float duration, float fadeTime)
+    {
+        ColorScreen(player, color, duration - fadeTime, fadeTime, FadeFlags.FADE_IN);
+        AddTimer(duration - fadeTime, () => ColorScreen(player, color, duration, fadeTime, FadeFlags.FADE_OUT));
+    }
+    //public void UnBlindPlayer(CCSPlayerController player) => ColorScreen(player, Color.Black, 0, 0);
+    private static void ColorScreen(CCSPlayerController player, Color color, float hold = 0.1f, float fade = 0.2f, FadeFlags flags = FadeFlags.FADE_IN, bool withPurge = true)
+    {
+        var fadeMsg = UserMessage.FromPartialName("Fade");
+
+        fadeMsg.SetInt("duration", Convert.ToInt32(fade * 512));
+        fadeMsg.SetInt("hold_time", Convert.ToInt32(hold * 512));
+
+        var flag = flags switch
+        {
+            FadeFlags.FADE_IN => 0x0002,
+            FadeFlags.FADE_OUT => 0x0001,
+            FadeFlags.FADE_STAYOUT => 0x0008,
+            _ => 0x0001
+        };
+
+        if (withPurge)
+        {
+            flag |= 0x0010;
+        }
+
+        fadeMsg.SetInt("flags", flag);
+        fadeMsg.SetInt("color", color.R | color.G << 8 | color.B << 16 | color.A << 24);
+        fadeMsg.Send(player);
+    }
+    public enum FadeFlags
+    {
+        FADE_IN,
+        FADE_OUT,
+        FADE_STAYOUT
     }
     public void PrintToChatTeam(CCSPlayerController? player, string message)
     {

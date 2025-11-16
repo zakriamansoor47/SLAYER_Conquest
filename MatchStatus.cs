@@ -83,7 +83,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         MatchStatus.IsLowTicketsSoundPlaying = true;
 
         // Play the sound to all players
-        foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV))
+        foreach (var p in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV))
         {
             var soundEventGuid = p.EmitSound($"CTF.BF.MatchEndingMusic_{soundIndex}", new RecipientFilter { p }, Config.SoundsVolume);
             MatchStatus.LowTicketsSoundEventGuid.Add(soundEventGuid);
@@ -176,7 +176,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         }
 
         // Freeze all players and stop them from shooting
-        var players = Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV);
+        var players = activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1).ToList();
         var winners = players.Where(p => p.TeamNum == (MatchStatus.Status == MatchStatusType.TerroristWin ? 2 : 3)).ToList();
         var losers = players.Where(p => p.TeamNum != (MatchStatus.Status == MatchStatusType.TerroristWin ? 2 : 3)).ToList();
         var Manager = GetMenuManager();

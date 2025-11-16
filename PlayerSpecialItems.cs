@@ -599,7 +599,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         int healed = 0;
 
-        foreach (var target in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == player.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p != player))
+        foreach (var target in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == player.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p != player))
         {
             var targetPos = target.PlayerPawn.Value?.CBodyComponent?.SceneNode?.AbsOrigin;
             if (targetPos == null) continue;
@@ -652,7 +652,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         int supplied = 0;
 
-        foreach (var target in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p.TeamNum == player.TeamNum && p != player))
+        foreach (var target in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p.TeamNum == player.TeamNum && p != player))
         {
             var targetPos = target.PlayerPawn.Value?.AbsOrigin;
             if (targetPos == null) continue;
@@ -872,7 +872,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         };
 
         // Start pickup detection timer
-        deployedItem.PickupTimer = AddTimer(0.1f, () => CheckAmmoPouchPickup(player, deployedItem), TimerFlags.REPEAT);
+        deployedItem.PickupTimer = AddTimer(0.1f, () => CheckAmmoPouchPickup(deployedItem, player.TeamNum), TimerFlags.REPEAT);
 
         // Add to dropped items list for cleanup tracking
         DroppedAmmoPouches.Add(deployedItem);
@@ -885,7 +885,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         });
     }
 
-    private void CheckAmmoPouchPickup(CCSPlayerController deployer, DeployedItemInfo deployedItem)
+    private void CheckAmmoPouchPickup(DeployedItemInfo deployedItem, int deployerTeam)
     {
         if (!deployedItem.IsValid || deployedItem.Entity == null || !deployedItem.Entity.IsValid) return;
 
@@ -893,7 +893,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (deployedItem.BeaconBeams == null && IsEqualVector(deployedItem.Entity.AbsOrigin, deployedItem.Position))
         {
             // Draw beacon if not already drawn
-            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployer.TeamNum == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
+            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployerTeam == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
         }
         // Move beacon if item is moved
         else if (deployedItem.BeaconBeams != null && deployedItem.BeaconBeams[0] != null && deployedItem.BeaconBeams[0].IsValid && deployedItem.BeaconBeams[0].AbsOrigin.Z != deployedItem.Entity.AbsOrigin.Z)
@@ -904,10 +904,10 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                 beam.Remove();
             }
             // Draw beacon at new position
-            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployer.TeamNum == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
+            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployerTeam == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
         }
 
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum != deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.TeamNum != deployerTeam && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
         {
             var playerPos = player.PlayerPawn.Value?.AbsOrigin;
             if (playerPos == null) continue;
@@ -934,7 +934,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (!deployedItem.IsValid) return;
 
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.TeamNum == deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
         {
             var playerPos = player.PlayerPawn.Value?.AbsOrigin;
             if (playerPos == null) continue;
@@ -1020,8 +1020,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
     {
         if (!deployedItem.IsValid) return;
 
-        var players = Utilities.GetPlayers();
-        foreach (var player in players)
+        var players = activePlayers;
+        foreach (var player in players.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
         {
             if (player == null || !player.IsValid || player.TeamNum != deployer.TeamNum)
                 continue;
@@ -1070,7 +1070,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         // nearby players
         List<(CCSPlayerController, float)> players = new List<(CCSPlayerController, float)>();
         bool triggerd = false;
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
         {
             var playerPos = player.PlayerPawn.Value?.AbsOrigin;
             if (playerPos == null) continue;

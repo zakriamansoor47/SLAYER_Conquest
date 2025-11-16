@@ -890,6 +890,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         menu.AddOption($"{Localizer["Menu.SelectDeployPosition"]}", (p, option) =>
         {
             manager.CloseMenu(p);
+            ColorScreen(player, Color.Black, 0.2f, 0.3f, FadeFlags.FADE_OUT);
             SelectDeployPositionsMenu(p); // Open the deploy positions menu
         });
 
@@ -1008,12 +1009,12 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             // Now set the glow on the deploy position
             if (deployPosition.Player == null)
             {
-                glow = SetGlowOnEntity(deployPosition.Model, Color.Gold, "Flagpole,1"); // Set Glow on Flagpole
+                glow = SetGlowOnEntity(deployPosition.Model, Color.Gold, "Flagpole,1", GlowRangeMax: 0); // Set Glow on Flagpole
             }
             else
             {
-                if (PlayerStatuses.ContainsKey(deployPosition.Player) && PlayerStatuses[deployPosition.Player].Status == PlayerStatusType.Combat) glow = SetGlowOnPlayer(deployPosition.Player, Color.Red, 1, 5000, player.TeamNum);
-                glow = SetGlowOnPlayer(deployPosition.Player, Color.Gold, 1, 5000, player.TeamNum); // Set glow on player deploy position
+                if (PlayerStatuses.ContainsKey(deployPosition.Player) && PlayerStatuses[deployPosition.Player].Status == PlayerStatusType.Combat) glow = SetGlowOnPlayer(deployPosition.Player, Color.Red, 0, 0, player.TeamNum);
+                glow = SetGlowOnPlayer(deployPosition.Player, Color.Gold, 0, 0, player.TeamNum); // Set glow on player deploy position
             }
             if (!PlayerSeeableGlow.ContainsKey(player)) PlayerSeeableGlow.Add(player, new List<PlayerGlow>()); // Add player to PlayerSeeableGlow if not already present
             if (glow != null && PlayerSeeableGlow.ContainsKey(player))

@@ -148,7 +148,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         FlagpoleModel.DispatchSpawn();
         FlagpoleModel.AcceptInput("SetBodyGroup", FlagpoleModel, FlagpoleModel, value: "Flagpole,1");
         FlagpoleModel.Teleport(position, new QAngle(0, flagdata.Rotation, 0), Vector.Zero);
-        var glowPole = SetGlowOnEntity(FlagpoleModel, Color.White, "Flagpole,1");
+        var glowPole = SetGlowOnEntity(FlagpoleModel, Color.White, "Flagpole,1", GlowRangeMax: 0);
 
         // Flag Settings
         FlagModel.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(FlagModel.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
@@ -310,7 +310,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
                             if (glow != null && glow.IsValid) glow.Remove();
                         }
                     }
-                    var glowPole = SetGlowOnEntity(Flag.Model[0], team == FlagCapturedBy.Terrorist ? Color.FromName(Config.TerroristTeamColor) : Color.FromName(Config.CTerroristTeamColor), "Flagpole,1"); // Set Glow on Flagpole
+                    var glowPole = SetGlowOnEntity(Flag.Model[0], team == FlagCapturedBy.Terrorist ? Color.FromName(Config.TerroristTeamColor) : Color.FromName(Config.CTerroristTeamColor), "Flagpole,1", GlowRangeMax: 0); // Set Glow on Flagpole
                     Flag.GlowModel = glowPole; // Update GlowModel with new glow models
                 }
             }
@@ -323,7 +323,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var playersInSquare = new List<CCSPlayerController>();
 
-        foreach (var player in Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.Team == team && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        foreach (var player in activePlayers.Where(player => player != null && player.IsValid && player.TeamNum > 1 && player.Team == team && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
         {
             if (IsInSquare(player.PlayerPawn.Value.AbsOrigin, square))
             {

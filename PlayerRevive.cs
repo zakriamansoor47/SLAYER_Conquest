@@ -330,7 +330,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
     private void CheckReviveOnTick()
     {
-        foreach (var player in Utilities.GetPlayers().Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && !player.IsHLTV && !player.IsBot))
+        foreach (var player in activePlayers.Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE && !player.IsHLTV && !player.IsBot))
         {
             var buttons = player.Buttons;
             if ((buttons & PlayerButtons.Use) != 0) // Check, is player Pressed +use button on tick

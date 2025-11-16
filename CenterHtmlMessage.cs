@@ -18,7 +18,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
         if (CenterMessageLines == null || CenterMessageLines.Count == 0) return;
 
         // Get all valid players once
-        var validPlayers = Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsBot && !p.IsHLTV).ToList();
+        var validPlayers = activePlayers;
 
         if (validPlayers.Count == 0) return;
 
@@ -35,7 +35,7 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
 
         var specificLines = sortedLines.Where(line => line.Value.Item3 != null && line.Value.Item3.Count > 0).ToList();
 
-        foreach (var player in validPlayers)
+        foreach (var player in validPlayers.Where(p => p != null && p.IsValid))
         {
             var playerMessages = new List<string>();
 
