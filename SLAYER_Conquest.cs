@@ -37,7 +37,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     public override string ModuleName => "SLAYER_Conquest";
     public override string ModuleVersion => "1.0";
     public override string ModuleAuthor => "SLAYER";
-    public override string ModuleDescription => "Capture the Flag Mode";
+    public override string ModuleDescription => "Battlefield-style Conquest game mode";
     public required SLAYER_ConquestConfig Config { get; set; }
     public void OnConfigParsed(SLAYER_ConquestConfig config)
     {
