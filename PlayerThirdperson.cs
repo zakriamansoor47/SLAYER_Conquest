@@ -20,7 +20,7 @@ using CS2TraceRay.Class;
 using CS2TraceRay.Enum;
 using CS2TraceRay.Struct;
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
 #pragma warning disable CS8600
 #pragma warning disable CS8602
@@ -28,7 +28,7 @@ namespace SLAYER_CaptureTheFlag;
 #pragma warning disable CS8604
 #pragma warning disable CS8618
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     Dictionary<CCSPlayerController, bool> PlayerWeaponZoomed = new Dictionary<CCSPlayerController, bool>();
     Dictionary<CCSPlayerController, int> PlayerWeaponZoomedCount = new Dictionary<CCSPlayerController, int>();

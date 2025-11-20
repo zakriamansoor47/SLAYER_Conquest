@@ -23,9 +23,9 @@ using System.Runtime.InteropServices;
 #pragma warning disable CS8604
 #pragma warning disable CS8619
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public Dictionary<string, FlagData> FlagPositions = new Dictionary<string, FlagData>();
     public class FlagData
@@ -56,8 +56,8 @@ public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_Ca
             public string MatchEndCameraPosition { get; set; } = "0 0 2500"; // Default position for the match end camera
             public Dictionary<string, FlagData> FlagPositions { get; set; } = new Dictionary<string, FlagData>(); // Dictionary to hold flag positions
         }
-        private SLAYER_CaptureTheFlag plugin; // Reference to the plugin instance
-        public FileHandling(SLAYER_CaptureTheFlag Plugin)
+        private SLAYER_Conquest plugin; // Reference to the plugin instance
+        public FileHandling(SLAYER_Conquest Plugin)
         {
             plugin = Plugin; // Store the plugin instance for later use
         }

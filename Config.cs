@@ -2,9 +2,9 @@ using CounterStrikeSharp.API.Core;
 using System.ComponentModel.Design.Serialization;
 using System.Text.Json.Serialization;
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public class SLAYER_CaptureTheFlagConfig : BasePluginConfig
+public class SLAYER_ConquestConfig : BasePluginConfig
 {
     [JsonPropertyName("FlagCaptureTime")] public float FlagCaptureTime { get; set; } = 10;
     [JsonPropertyName("DefaultPlayerClass")] public string DefaultPlayerClass { get; set; } = "Assault";

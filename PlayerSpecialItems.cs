@@ -25,9 +25,9 @@ using CS2TraceRay.Class;
 #pragma warning disable CS8604
 #pragma warning disable CS8619
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     // Add this dictionary to track deployed spawn radios
     public Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)> DeployedSpawnRadios = new Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)>();

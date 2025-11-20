@@ -1,10 +1,10 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     // Track last few used animations to avoid repetition
     private static readonly Queue<string> _recentVictoryAnimations = new Queue<string>();

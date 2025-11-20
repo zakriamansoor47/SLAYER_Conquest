@@ -3,9 +3,9 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public Dictionary<int, (string, float, RecipientFilter, float)> CenterMessageLines = new Dictionary<int, (string, float, RecipientFilter, float)>();
     private bool _isSorting = false;

@@ -21,14 +21,14 @@ using CS2TraceRay.Enum;
 using CS2TraceRay.Struct;
 using Vector3 = System.Numerics.Vector3;
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 #pragma warning disable CS8600
 #pragma warning disable CS8602
 #pragma warning disable CS8603
 #pragma warning disable CS8604
 #pragma warning disable CS8618
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public Dictionary<CCSPlayerController, List<DeployPositions>> PlayerDeployPositions = new Dictionary<CCSPlayerController, List<DeployPositions>>();
     public class DeployPositions

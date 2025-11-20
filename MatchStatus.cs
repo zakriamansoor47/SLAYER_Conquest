@@ -29,9 +29,9 @@ using System.Text.RegularExpressions;
 #pragma warning disable CS8604
 #pragma warning disable CS8619
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public MatchStatusInfo MatchStatus = new MatchStatusInfo();
     public Timer? MatchStatusTimer = null;

@@ -28,9 +28,9 @@ using Vector3 = System.Numerics.Vector3;
 #pragma warning disable CS8604
 #pragma warning disable CS8619
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public Dictionary<CCSPlayerController, List<CallInAttackStatus>> OnGoingCallInAttacks = new Dictionary<CCSPlayerController, List<CallInAttackStatus>>();
     public class CallInAttackStatus

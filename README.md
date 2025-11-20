@@ -1,10 +1,10 @@
-# SLAYER CaptureTheFlag Plugin
+# SLAYER Conquest Plugin
 
 A comprehensive Capture the Flag gamemode plugin for Counter-Strike 2 servers, featuring squad-based gameplay, class systems, revive mechanics, deployable items, and call-in attacks.
 
 ## 📖 Description
 
-SLAYER CaptureTheFlag transforms Counter-Strike 2 into an immersive battlefield experience inspired by games like Battlefield. Players are organized into squads with different classes, each having unique abilities and equipment. The objective is to capture and hold flags while managing team tickets in strategic combat scenarios.
+SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experience inspired by games like Battlefield. Players are organized into squads with different classes, each having unique abilities and equipment. The objective is to capture and hold flags while managing team tickets in strategic combat scenarios.
 
 ## ✨ Features
 
@@ -53,7 +53,7 @@ SLAYER CaptureTheFlag transforms Counter-Strike 2 into an immersive battlefield 
    - Download and install [T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)
    - Download and install [CS2TraceRay](https://github.com/schwarper/CS2TraceRay)
 3. Subscribe to the [Required Assets Workshop Collection](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
-4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_CaptureTheFlag/`
+4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_Conquest/`
 5. Configure the plugin using the generated config file
 6. Set up flag positions using the admin commands
 

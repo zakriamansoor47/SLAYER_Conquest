@@ -1,5 +1,5 @@
 {
-    "Chat.Prefix":                          "{Gold}[{DarkRed}★ {Green}SLAYER CaptureTheFlag {DarkRed}★{Gold}]",
+    "Chat.Prefix":                          "{Gold}[{DarkRed}★ {Green}SLAYER Conquest {DarkRed}★{Gold}]",
     "Chat.InvalidFlagName":                 "{Red}Invalid flag name. Please provide a valid name.",
     "Chat.NameAlreadyExist":                "{Red}A flag with this name already exists.",
     "Chat.FlagPositionSet":                 "{Gold}Flag {Green}'{0}' {Gold}position set at {Green}{1}.",
@@ -108,7 +108,7 @@
     "Chat.MedicPouchUsed":                  "{Green}Medic pouch used! Healed {0} teammates.",
     "Chat.AmmoPouchUsed":                   "{Green}Ammo pouch used! Supplied {0} teammates.",
     "Chat.ItemOnCooldown":                  "{Red}{0} is on cooldown for {Lime}{1} {Red}seconds.",
-    "Chat.ItemNoCharges":                   "{Red}You have no {0} charges remaining.",
+    "Chat.NoUsesRemaining":                 "{Red}{0} has no uses remaining!",
     "Chat.ItemDeployed":                    "{Lime}You deployed {0}.",
     "Chat.ItemAlreadyDeployed":             "{Red}You already have a {0} deployed. Remove it first.",
     "Chat.MustBeInSquad":                   "{Red}You must be in a squad to deploy a spawn radio!",
@@ -118,7 +118,7 @@
     "Chat.FlagCaptured":                    "{Gold}Flag {Green}'{0}'{Gold} has been captured by {1}!",
     "Chat.TeamWin":                         "{0} Win",
 
-    "Menu.CTFSettings.Title":               "<font color='gold'>Capture The Flag Settings</font>",
+    "Menu.CTFSettings.Title":               "<font color='gold'>Conquest Settings</font>",
     "Menu.CreateFlag.Title":                "<font color='lime'>Create Flag</font>",
     "Menu.EditFlag.Title":                  "<font color='blue'>Edit Flag</font>",
     "Menu.DeleteFlag.Title":                "<font color='red'>Delete Flag</font>",

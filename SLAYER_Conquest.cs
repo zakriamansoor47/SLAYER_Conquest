@@ -30,16 +30,16 @@ using CounterStrikeSharp.API.Modules.Events;
 #pragma warning disable CS8604
 #pragma warning disable CS8618
 
-namespace SLAYER_CaptureTheFlag;
+namespace SLAYER_Conquest;
 
-public partial class SLAYER_CaptureTheFlag : BasePlugin, IPluginConfig<SLAYER_CaptureTheFlagConfig>
+public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
-    public override string ModuleName => "SLAYER_CaptureTheFlag";
+    public override string ModuleName => "SLAYER_Conquest";
     public override string ModuleVersion => "1.0";
     public override string ModuleAuthor => "SLAYER";
     public override string ModuleDescription => "Capture the Flag Mode";
-    public required SLAYER_CaptureTheFlagConfig Config { get; set; }
-    public void OnConfigParsed(SLAYER_CaptureTheFlagConfig config)
+    public required SLAYER_ConquestConfig Config { get; set; }
+    public void OnConfigParsed(SLAYER_ConquestConfig config)
     {
         Config = config;
         ExecuteServerCommands();
