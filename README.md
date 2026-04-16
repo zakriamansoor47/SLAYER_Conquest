@@ -1,10 +1,8 @@
 # SLAYER Conquest
 
-A comprehensive Capture the Flag gamemode plugin for Counter-Strike 2 servers, featuring squad-based gameplay, class systems, revive mechanics, deployable items, and call-in attacks.
-
 ## 📖 Description
 
-SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experience inspired by games like Battlefield. Players are organized into squads with different classes, each having unique abilities and equipment. The objective is to capture and hold flags while managing team tickets in strategic combat scenarios.
+SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experience inspired by games like Battlefield. Players are organized into squads with different classes, each having unique abilities and equipment. The objective is to capture and hold flags while managing team tickets in strategic combat scenarios. With a variety of deployable items, call-in attacks, and advanced mechanics like sprinting and third-person mode, SLAYER Conquest offers a fresh and engaging gameplay experience for CS2 players.
 
 ## ✨ Features
 
