@@ -43,6 +43,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 - **[T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)**: For menu functionality
 - **[RayTrace v1.0.7](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases/tag/v1.0.7)**: For raytracing functionality
 - **[Custom Models & Particles](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)**: Workshop collection with required assets
+- **[SLAYER_SpawnDuplicator](https://github.com/zakriamansoor47/SLAYER_SpawnDuplicator)**: (Optional) To create extra spawn points for players (like spawning 64 players on a map with only 16 spawn points)
 
 ## ⚙️ Installation
 
