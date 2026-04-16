@@ -20,7 +20,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         CTFSettingsMenu(player);
     }
-    [ConsoleCommand("test", "Test command")]
+    /*[ConsoleCommand("test", "Test command")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void CreateEntityCMD(CCSPlayerController? player, CommandInfo command)
     {
@@ -47,7 +47,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         if (targetPlayer == null) return;
 
         targetPlayer.Pawn.Value!.Teleport(position);
-    }
+    }*/
     private CCSPlayerController? GetTarget(CCSPlayerController player, CommandInfo commandInfo)
     {
         if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum < 2 || player.LifeState != (byte)LifeState_t.LIFE_ALIVE) return null;

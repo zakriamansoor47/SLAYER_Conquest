@@ -21,6 +21,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         public Dictionary<CPhysicsProp, (float, CEnvParticleGlow?)> TemporaryCallInProps = new Dictionary<CPhysicsProp, (float, CEnvParticleGlow?)>();
         public List<CBeam>? Beams = null;
         public Timer? DestroyTimer { get; set; } = null;
+        public Timer? WarningSoundTimer { get; set; } = null;
         public void CleanupEntities()
         {
             foreach (var prop in TemporaryCallInProps)
@@ -44,6 +45,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             if (DestroyTimer != null) DestroyTimer.Kill();
             DestroyTimer = null;
+
+            if (WarningSoundTimer != null) WarningSoundTimer.Kill();
+            WarningSoundTimer = null;
         }
     }
     public CPhysicsPropMultiplayer? CreatePlayerCallInAttackCameraProp(CCSPlayerController player, Vector position, QAngle angles)
@@ -177,7 +181,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         var baseSpawnPos = CalculateSpawnPosition(position, 5000, 6000, 8000, 10000); // 5000-6000 units away, 8000-10000 units high
         
         // Number of artillery shells to spawn
-        int numShells = _random.Next(10, 15); // Configurable number of shells
+        int numShells = _random.Next(20, 25); // Configurable number of shells
         float spawnRadius = 200f; // Radius around base spawn position
         
         // Create artillery barrage status to track all shells
@@ -420,6 +424,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         if (player == null || !player.IsValid || attack == null || position == Vector.Zero) return;
 
+        const float warningSoundLength = 10f; // guidedmissile.vsnd length
+
         // Calculate missile spawn position (away from target, high in air)
         var spawnPos = CalculateSpawnPosition(position);
         var impactPos = position;
@@ -453,6 +459,31 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             Beams = null                                             // ✅ Not needed for missiles
         };
 
+        // Estimate impact timing once and schedule the 10s warning sound so it finishes near explosion.
+        float predictedFlightTime = EstimateGuidedMissileFlightTime(spawnPos, impactPos);
+        float warningDelay = Math.Max(0f, predictedFlightTime - warningSoundLength);
+        float safetyCleanupDelay = Math.Max(20f, predictedFlightTime + 5f);
+        missileStatus.EndTime = missileStatus.StartTime + safetyCleanupDelay;
+
+        missileStatus.WarningSoundTimer = AddTimer(warningDelay, () =>
+        {
+            if (!OnGoingCallInAttacks.ContainsKey(player) || !OnGoingCallInAttacks[player].Contains(missileStatus))
+                return;
+
+            foreach (var p in Utilities.GetPlayers())
+            {
+                if (p == null || !p.IsValid) continue;
+
+                var playerPos = p.PlayerPawn?.Value?.AbsOrigin;
+                if (playerPos == null) continue;
+
+                if (DistanceSquared(playerPos, impactPos) <= 3000f * 3000f)
+                {
+                    p.ExecuteClientCommand("play sounds/slayer/capturetheflag/guidedmissile.vsnd");
+                }
+            }
+        });
+
         // Start missile guidance using DestroyTimer as guidance timer
         missileStatus.DestroyTimer = AddTimer(0.01f, () => UpdateMissileGuidance(missileStatus, player, attack), TimerFlags.REPEAT);
 
@@ -463,7 +494,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         OnGoingCallInAttacks[player].Add(missileStatus);
 
         // Safety cleanup timer in case something goes wrong
-        AddTimer(20f, () =>
+        AddTimer(safetyCleanupDelay, () =>
         {
             if (OnGoingCallInAttacks.ContainsKey(player) && OnGoingCallInAttacks[player].Contains(missileStatus))
             {
@@ -472,6 +503,27 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         });
 
         PrintToChatTeam(player, $"{Localizer["Chat.Prefix"]} {Localizer["Chat.LaunchedGuidedMissile", PlayerStatuses[player].DefaultName]}");
+    }
+
+    private float EstimateGuidedMissileFlightTime(Vector spawnPos, Vector impactPos)
+    {
+        const float impactDistance = 250f;
+        const float step = 0.05f;
+        const float maxSimulationTime = 40f;
+
+        float remainingDistance = CalculateDistanceBetween(spawnPos, impactPos);
+        float simulatedElapsed = 0f;
+        float simulatedTime = 0f;
+
+        while (remainingDistance > impactDistance && simulatedTime < maxSimulationTime)
+        {
+            float speed = Math.Max(1f, CalculateMissileSpeed(simulatedElapsed, remainingDistance));
+            remainingDistance -= speed * step;
+            simulatedElapsed += step;
+            simulatedTime += step;
+        }
+
+        return simulatedTime;
     }
 
     public bool IsCallInAttackAlreadyCalledByTeam(string attackName, int teamNum)
@@ -595,17 +647,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // ✅ KEEP ORIGINAL ROTATION - Don't recalculate!
         // Just move the missile, rotation stays the same from spawn
         missile.Teleport(null, missile.AbsRotation, velocity); // Use existing rotation
-        
-        // Play approach sound
-        if (missileStatus.EndTime - Server.CurrentTime <= 13f)
-        {
-            missileStatus.EndTime = Server.CurrentTime + 30f;
-            
-            foreach (var p in Utilities.GetPlayers().Where(p => p != null && p.IsValid && CalculateDistanceBetween(p.PlayerPawn?.Value?.AbsOrigin ?? Vector.Zero, targetPos) <= 3000f))
-            {
-                p.ExecuteClientCommand("play sounds/slayer/capturetheflag/guidedmissile.vsnd");
-            }
-        }
     }
 
     /// <summary>
