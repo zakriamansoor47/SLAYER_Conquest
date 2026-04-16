@@ -42,7 +42,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         var reviverType = GetPlayerClassType(reviver);
         if (reviverType == PlayerClassType.Medic) return ReviverType.Medic; // Reviver is a Medic
 
-        var squadMembers = GetPlayerSquad(reviver).Members;
+        var squadMembers = GetPlayerSquad(reviver)?.Members;
         if (squadMembers != null && squadMembers.Any())
         {
             if (squadMembers.ContainsKey(player)) return ReviverType.SquadMember; // Reviver is a squad member
@@ -314,8 +314,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
     private void CheckReviveOnTick()
     {
-        foreach (var player in activePlayers.Where(player => player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum > 1 && player.PlayerPawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && !player.IsHLTV && !player.IsBot))
+        foreach (var player in activePlayers)
         {
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.TeamNum <= 1 || player.IsHLTV || player.IsBot || player.PlayerPawn.Value == null || player.PlayerPawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
             var buttons = player.Buttons;
             if ((buttons & PlayerButtons.Use) != 0) // Check, is player Pressed +use button on tick
             {
@@ -419,4 +421,15 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         return NormalizeAngle(result);
     }
 
+    /// <summary>
+    /// Normalize an angle to the range of -180 to 180 degrees
+    /// </summary>
+    /// <param name="angle">The angle to normalize</param> 
+    /// <returns>The normalized angle</returns>
+    private float NormalizeAngle(float angle)
+    {
+        while (angle > 180f) angle -= 360f;
+        while (angle < -180f) angle += 360f;
+        return angle;
+    }
 }

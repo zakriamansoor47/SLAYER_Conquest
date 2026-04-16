@@ -211,7 +211,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         catch (Exception ex)
         {
             player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ErrorDeletingFlag"]}");
-            Console.WriteLine($"[SLAYER CaptureTheFlag] Error deleting Flag '{flagName}': {ex.Message}");
+            Console.WriteLine($"[SLAYER Conquest] Error deleting Flag '{flagName}': {ex.Message}");
         }
     }
     private void UpdateFlagsStatus()
@@ -221,8 +221,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         float captureIncrement = 100f / (Config.FlagCaptureTime / 0.05f / 2); // Calculate increment per 0.05 seconds
         float flagPositionIncrement = 3.8f / (1 / captureIncrement);
 
-        foreach (var Flag in Flagpoles?.Where(flagpole => flagpole != null && flagpole.Model != null))
+        foreach (var Flag in Flagpoles)
         {
+            if (Flag == null || Flag.Model == null) continue;
+
             Flag.TerroristsInSquare = GetPlayersInSquare(CsTeam.Terrorist, Flag.CaptureSquare);
             Flag.CTerroristsInSquare = GetPlayersInSquare(CsTeam.CounterTerrorist, Flag.CaptureSquare);
 
@@ -238,11 +240,20 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             if (Flag.TerroristsInSquare.Count > 0 && Flag.CTerroristsInSquare.Count > 0)
             {
+                var allPlayersInSquare = new List<CCSPlayerController>(Flag.TerroristsInSquare.Count + Flag.CTerroristsInSquare.Count);
+                foreach (var tPlayer in Flag.TerroristsInSquare)
+                {
+                    if (tPlayer != null) allPlayersInSquare.Add(tPlayer);
+                }
+                foreach (var ctPlayer in Flag.CTerroristsInSquare)
+                {
+                    if (ctPlayer != null) allPlayersInSquare.Add(ctPlayer);
+                }
+                var totalPlayersInSquare = allPlayersInSquare.Count;
 
-                var allPlayersInSquare = Flag.TerroristsInSquare.Union(Flag.CTerroristsInSquare).ToList();
-                var text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
-                if (Flag.TerroristsInSquare.Count > Flag.CTerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.Terrorist) text = GenerateLoadingText(Flag.TerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
-                else if (Flag.CTerroristsInSquare.Count > Flag.TerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.CounterTerrorist) text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, allPlayersInSquare.Count(), 10, '█', '█', filledcolor, emptycolor);
+                var text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, totalPlayersInSquare, 10, '█', '█', filledcolor, emptycolor);
+                if (Flag.TerroristsInSquare.Count > Flag.CTerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.Terrorist) text = GenerateLoadingText(Flag.TerroristsInSquare.Count, totalPlayersInSquare, 10, '█', '█', filledcolor, emptycolor);
+                else if (Flag.CTerroristsInSquare.Count > Flag.TerroristsInSquare.Count && Flag.LastCapturedBy == FlagCapturedBy.CounterTerrorist) text = GenerateLoadingText(Flag.CTerroristsInSquare.Count, totalPlayersInSquare, 10, '█', '█', filledcolor, emptycolor);
                 UpdateCenterMessageLine(2, $"<font class='fontSize-m' color='{filledcolor}'><b>⚠️</b></font> <font class='fontSize-m' color='red'>Threats:</font> {text} <font class='fontSize-s' color='red'></font>", ConvertPlayersListToRecipientFilter(allPlayersInSquare!, true), 0.5f, true);
             }
 
@@ -264,8 +275,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     Flag.CapturedStatus += captureIncrement;
                     Flag.Model[1].Teleport(new Vector(Flag.Model[1].AbsOrigin.X, Flag.Model[1].AbsOrigin.Y, Flag.Model[1].AbsOrigin.Z + flagPositionIncrement));
 
-                    foreach (var player in players.Where(p => p != null && p.IsValid))
+                    foreach (var player in players)
                     {
+                        if (player == null || !player.IsValid) continue;
+
                         if (PlayerStatuses.ContainsKey(player))
                         {
                             if (IsPlayerInAnyFlagSquare(player) == Flag && !PlayerStatuses[player].CaptureCooldown)
@@ -323,8 +336,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         var playersInSquare = new List<CCSPlayerController>();
 
-        foreach (var player in activePlayers.Where(player => player != null && player.IsValid && player.TeamNum > 1 && player.Team == team && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        foreach (var player in activePlayers)
         {
+            if (player == null || !player.IsValid || player.TeamNum <= 1 || player.Team != team || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
             if (IsInSquare(player.PlayerPawn.Value.AbsOrigin, square))
             {
                 playersInSquare.Add(player);
@@ -343,8 +358,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         if (player == null || !player.IsValid || Flagpoles == null || player.PlayerPawn.Value.AbsOrigin == null) return null;
 
-        foreach (var flagpole in Flagpoles?.Where(flagpole => flagpole != null))
+        foreach (var flagpole in Flagpoles)
         {
+            if (flagpole == null) continue;
             if (IsInSquare(player.PlayerPawn.Value.AbsOrigin, flagpole.CaptureSquare))
                 return flagpole;
         }

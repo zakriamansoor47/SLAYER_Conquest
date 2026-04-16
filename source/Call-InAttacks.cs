@@ -246,7 +246,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         );
 
         // Ray trace to find exact impact position
-        TraceShape(shellSpawnPos, shellTargetPos, player.PlayerPawn.Value, new TraceOptions(InteractionLayers.MASK_SHOT_FULL, InteractionLayers.MASK_SHOT_FULL), out var trace);
+        TraceShape(shellSpawnPos, shellTargetPos, player.PlayerPawn.Value, new TraceOptions(InteractionLayers.MASK_SHOT, InteractionLayers.MASK_SHOT), out var trace);
         if (trace.DidHit)
         {
             shellTargetPos = ConvertVector3ToVector(trace.EndPos);
@@ -425,7 +425,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         var impactPos = position;
 
         // Trace to find exact impact position on ground
-        TraceShape(spawnPos, position, player.PlayerPawn.Value, new TraceOptions(InteractionLayers.MASK_SHOT_FULL, InteractionLayers.MASK_SHOT_FULL), out var trace); // missile.Collision.CollisionAttribute.InteractsWith
+        TraceShape(spawnPos, position, player.PlayerPawn.Value, new TraceOptions(InteractionLayers.MASK_SHOT, InteractionLayers.MASK_SHOT), out var trace); // missile.Collision.CollisionAttribute.InteractsWith
         if (trace.DidHit) impactPos = ConvertVector3ToVector(trace.EndPos);
 
         // Create the missile entity

@@ -38,10 +38,6 @@ public class SLAYER_ConquestConfig : BasePluginConfig
     [JsonPropertyName("PlayerRedeployDelay")] public float PlayerRedeployDelay { get; set; } = 5f;
     [JsonPropertyName("PlayerBotRedeployDelay")] public float PlayerBotRedeployDelay { get; set; } = 10f;
     [JsonPropertyName("RemoveDropWeaponAfterDeath")] public float RemoveDropWeaponAfterDeath { get; set; } = 10f;
-    [JsonPropertyName("AllowThirdPerson")] public bool AllowThirdPerson { get; set; } = true;
-    [JsonPropertyName("PlayerTPCameraXYOffset")] public float PlayerTPCameraXYOffset { get; set; } = -30; // prop camera XY offset
-    [JsonPropertyName("PlayerTPCameraZOffset")] public float PlayerTPCameraZOffset { get; set; } = 75; // Prop camera Z offset
-    [JsonPropertyName("PlayerTPCameraRightOffset")] public float PlayerTPCameraRightOffset { get; set; } = -10; // Prop camera right offset
     [JsonPropertyName("MatchStartTime")] public float MatchStartTime { get; set; } = 60f; // Time to show best squad at match start
     [JsonPropertyName("MatchEndShowBestSquadTime")] public float MatchEndShowBestSquadTime { get; set; } = 10f; // Time to show best squad at match end
     [JsonPropertyName("MatchEndMapChangeDelay")] public float MatchEndMapChangeDelay { get; set; } = 20f; // Time to change map at match end

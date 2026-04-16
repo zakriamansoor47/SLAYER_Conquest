@@ -1,29 +1,9 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Timers;
-using CounterStrikeSharp.API.Modules.Cvars;
-using CounterStrikeSharp.API.Modules.Menu;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Drawing;
-using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
 using T3MenuSharedApi;
-
-
-// Used these to remove compile warnings
-#pragma warning disable CS8600
-#pragma warning disable CS8602
-#pragma warning disable CS8603
-#pragma warning disable CS8604
-#pragma warning disable CS8619
 
 namespace SLAYER_Conquest;
 
@@ -38,7 +18,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         if (manager == null) return;
 
         // Create menu
-        var settingsMenu = manager.CreateMenu(Localizer["Menu.CTFSettings.Title"], false, true, true, false);
+        var settingsMenu = manager.CreateMenu(Localizer["Menu.Settings.Title"], false, true, true, false);
 
         // Add option to create a new flag
         settingsMenu.AddOption($"{Localizer["Menu.CreateFlag.Title"]}", (p, option) =>
@@ -61,14 +41,14 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // Add option to change the deploy camera position
         settingsMenu.AddOption($"{Localizer["Menu.ChangeDeployCameraPosition"]}", (p, option) =>
         {
-            p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DeployCameraPositionChanged", $"{DeployCameraPosition}", $"{p.PlayerPawn.Value.AbsOrigin!}"]}");
+            p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.DeployCameraPositionChanged", $"{DeployCameraPosition}", $"{p.PlayerPawn.Value!.AbsOrigin!}"]}");
             DeployCameraPosition = p.PlayerPawn.Value.AbsOrigin!; // Set the deploy camera position to the player's current position
-            fileHandler.SaveFlagPositions();
+            if (fileHandler != null) fileHandler.SaveFlagPositions();
         });
 
         settingsMenu.AddOption($"{Localizer["Menu.ChangeMatchEndCameraPosition"]}", (p, option) =>
         {
-            var position = new Vector(p.PlayerPawn.Value.AbsOrigin.X, p.PlayerPawn.Value.AbsOrigin.Y, p.PlayerPawn.Value.AbsOrigin.Z + 64); // player eye position
+            var position = new Vector(p.PlayerPawn.Value!.AbsOrigin!.X, p.PlayerPawn.Value.AbsOrigin.Y, p.PlayerPawn.Value.AbsOrigin.Z + 64); // player eye position
             p.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchEndCameraPositionChanged", $"({MatchEndCameraPosition.Item1} | {MatchEndCameraPosition.Item2})", $"({position} | {p.PlayerPawn.Value.AbsRotation!})"]}");
             MatchEndCameraPosition = (position, p.PlayerPawn.Value.AbsRotation!); // Set the match end camera position to the player's current position
             fileHandler.SaveFlagPositions();
@@ -126,7 +106,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     if (position == null) return;
 
                     flag.Model?[0].Teleport(position); // teleport flag pole
-                    flag.Model?[1].Teleport(new Vector(position.X, position.Y, flag.Model?[1].AbsOrigin.Z)); // teleport flag
+                    flag.Model?[1].Teleport(new Vector(position.X, position.Y, flag.Model?[1].AbsOrigin!.Z)); // teleport flag
 
                     // Update the flag object position
                     flag.Position = position;
@@ -308,7 +288,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         if (flag == null && !isEditMode) return;
 
         // Corner 1
-        cornerMenu.AddOption($"<font color='cyan'>Corner 1: {flag.CaptureSquare.Corner1.X:F0}, {flag.CaptureSquare.Corner1.Y:F0}</font>", (p, option) =>
+        cornerMenu.AddOption($"<font color='cyan'>Corner 1: {flag!.CaptureSquare.Corner1.X:F0}, {flag.CaptureSquare.Corner1.Y:F0}</font>", (p, option) =>
         {
             CornerAdjustmentMenu(p, cornerMenu, flagName, 1, isEditMode);
         });
@@ -357,7 +337,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             foreach (var op in movementOptions.Where(o => o != null))
             {
-                op.Value.OptionDisplay = op.Value.OptionDisplay.Replace($"({selected_unit})", $"({units[value]})");
+                op.Value.OptionDisplay = op.Value.OptionDisplay!.Replace($"({selected_unit})", $"({units[value]})");
             }
             selected_unit = (int)units[value];
             manager.Refresh();
@@ -374,7 +354,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             movementOptions.Add(adjustMenu.AddOption($"<font color='{(isExpand ? colors[colorcounter] : "red")}'>{direction} ({selected_unit})</font>", (p, option) =>
             {
-                AdjustSquareSide(flag, side, isExpand ? -selected_unit : selected_unit);
+                AdjustSquareSide(flag!, side, isExpand ? -selected_unit : selected_unit);
                 manager.Refresh();
             }));
         }
@@ -397,7 +377,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         var flag = Flagpoles?.FirstOrDefault(f => f.Name == flagName);
         if (flag == null && !isEditMode) return;
 
-        Vector corner = GetCornerByNumber(flag.CaptureSquare, cornerNumber);
+        Vector corner = GetCornerByNumber(flag!.CaptureSquare, cornerNumber);
         string[] directions = { "Move Forward (-Y)", "Move Backward (+Y)", "Move Right (-X)", "Move Left (+X)", "Move Up (+Z)", "Move Down (-Z)" };
         string[] colors = { "lime", "red", "orange", "cyan", "RoyalBlue", "silver" };
 
@@ -411,7 +391,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             foreach (var op in movementOptions.Where(o => o != null))
             {
-                op.Value.OptionDisplay = op.Value.OptionDisplay.Replace($"(±{selected_unit})", $"(±{units[value]})");
+                op.Value.OptionDisplay = op.Value.OptionDisplay!.Replace($"(±{selected_unit})", $"(±{units[value]})");
             }
             selected_unit = (int)units[value];
             manager.Refresh();
@@ -426,7 +406,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             movementOptions.Add(adjustMenu.AddOption($"<font color='{colors[i]}'>{direction} (±{selected_unit})</font>", (p, option) =>
             {
-                AdjustIndividualCorner(flag, cornerNumber, axis, isPositive ? selected_unit : -selected_unit);
+                AdjustIndividualCorner(flag!, cornerNumber, axis, isPositive ? selected_unit : -selected_unit);
                 if (positionOption != null) positionOption.Value.OptionDisplay = $"<font color='yellow'>Position: {corner.X:F0}, {corner.Y:F0}, {corner.Z:F0}</font>";
                 manager.Refresh();
             }));
@@ -550,7 +530,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 else
                 {
                     SelectPlayerClass(p, classType);
-                    MenuManager.OpenMainMenu(p, parentMenu); // Reopen the parent menu after selection
+                    MenuManager!.OpenMainMenu(p, parentMenu); // Reopen the parent menu after selection
                 }
             });
         }
@@ -573,7 +553,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         classSubMenu.AddOption($"<font color='lime'>SELECT THIS CLASS</font>", (p2, opt2) =>
         {
             SelectPlayerClass(player, classType);
-            MenuManager.CloseMenu(player); // Close the class selection menu
+            MenuManager!.CloseMenu(player); // Close the class selection menu
             OpenPlayerClassMenu(player); // Reopen the parent menu
         });
 
@@ -635,7 +615,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.WeaponSelected", weaponName, Localizer["Weapon.Primary"]]}");
                 // Refresh the menu
                 OpenPrimaryWeaponMenu(p, classType, manager, parentMenu);
-                MenuManager.Refresh();
+                MenuManager!.Refresh();
             });
         }
 
@@ -680,7 +660,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.WeaponSelected", weaponName, Localizer["Weapon.Secondary"]]}");
                 // Refresh the menu
                 OpenSecondaryWeaponMenu(p, classType, manager, parentMenu);
-                MenuManager.Refresh();
+                MenuManager!.Refresh();
             });
         }
 
@@ -706,8 +686,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // Get player's current equipment selection or create empty list
         if (!PlayerStatuses.TryGetValue(player, out var status))
         {
+            status = new PlayerStatus();
             status.SelectedWeapons = new PlayerSelectedWeapons();
-            PlayerStatuses[player].SelectedWeapons = status.SelectedWeapons;
+            PlayerStatuses[player] = status;
         }
 
         // Display current equipment selections
@@ -756,7 +737,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
                 // Refresh the menu
                 OpenEquipmentMenu(p, classType, manager, parentMenu);
-                MenuManager.Refresh();
+                MenuManager!.Refresh();
             });
         }
 
@@ -785,8 +766,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             if (DeadPlayersTimer[player].Item1 != null) DeadPlayersTimer[player].Item1.Kill(); // Kill the existing timer if it exists
             DeadPlayersTimer.Remove(player); // Remove the player from the dead players timer list
         }
-        var reviveCounterOption = new LinkedListNode<IT3Option?>(null); // Initialize the revive counter option
-        var medicsOption = new LinkedListNode<IT3Option?>(null); // Initialize the medics option
+        var reviveCounterOption = new LinkedListNode<IT3Option>(null!); // Initialize the revive counter option
+        var medicsOption = new LinkedListNode<IT3Option>(null!); // Initialize the medics option
 
         var medicsPlayers = FindNearbyMedicsOrSquadmates(player).Take(5).ToList(); // Find nearby medics or squadmates
         List<object> medics = new List<object>();
@@ -802,22 +783,22 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 var timerTuple = DeadPlayersTimer[player];
                 timerTuple.Item2 -= 1; // Decrease the timer by 1 second
                 DeadPlayersTimer[player] = timerTuple;
-                if (reviveCounterOption != null) reviveCounterOption.Value.OptionDisplay = $"<font color='lime'>Request Revive:</font> <font color='red'>{DeadPlayersTimer[player].Item2}s</font>";
+                if (reviveCounterOption != null) reviveCounterOption.Value!.OptionDisplay = $"<font color='lime'>Request Revive:</font> <font color='red'>{DeadPlayersTimer[player].Item2}s</font>";
             }
-            else if (DeadPlayersTimer.ContainsKey(player) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && !IsPlayerGettingRevived(player) && DeadPlayersTimer[player].Item2 <= 0)
+            else if (DeadPlayersTimer.ContainsKey(player!) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && !IsPlayerGettingRevived(player) && DeadPlayersTimer[player].Item2 <= 0)
             {
                 if (DeadPlayersTimer[player].Item1 != null) DeadPlayersTimer[player].Item1.Kill();
                 DeadPlayersTimer.Remove(player);
                 manager.CloseMenu(player);
                 DeploySettingsMenu(player);
             }
-            else if (DeadPlayersTimer.ContainsKey(player) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && IsPlayerGettingRevived(player))
+            else if (DeadPlayersTimer.ContainsKey(player!) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && IsPlayerGettingRevived(player))
             {
                 var reviveEntry = GetPlayerReviveEntry(player);
-                if (reviveCounterOption != null) reviveCounterOption.Value.OptionDisplay = $"<font color='lime'>Getting Revived:</font> <font color='red'>{GenerateLoadingText(Server.CurrentTime - reviveEntry.reviveTime, reviveEntry.reviveDuration)}s</font>";
+                if (reviveCounterOption != null) reviveCounterOption.Value!.OptionDisplay = $"<font color='lime'>Getting Revived:</font> <font color='red'>{GenerateLoadingText(Server.CurrentTime - reviveEntry!.reviveTime, reviveEntry.reviveDuration)}s</font>";
             }
 
-            if (DeadPlayersTimer.ContainsKey(player) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected)
+            if (DeadPlayersTimer.ContainsKey(player!) && player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected)
             {
                 medicsPlayers = FindNearbyMedicsOrSquadmates(player).Take(5).ToList(); // Find nearby medics or squadmates
                 List<object> medics = new List<object>();
@@ -827,8 +808,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 }
                 if (medicsOption != null)
                 {
-                    medicsOption.Value.OptionDisplay = $"<font color='gold'>Nearby Medics:</font>";
-                    medicsOption.Value.CustomValues = medics;
+                    medicsOption.Value!.OptionDisplay = $"<font color='gold'>Nearby Medics:</font>";
+                    medicsOption.Value!.CustomValues = medics;
                 }
             }
 
@@ -838,7 +819,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         medicsOption = menu.AddSliderOption($"<font color='gold'>Nearby Medics:</font>", medics, null, 5, (p, option, value) =>
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MedicDistance", PlayerStatuses[medicsPlayers.ElementAt(value)].DefaultName, (int)(CalculateDistanceBetween(medicsPlayers.ElementAt(value).PlayerPawn.Value.AbsOrigin, player.PlayerPawn.Value.AbsOrigin) / 39.37f)]}");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MedicDistance", PlayerStatuses[medicsPlayers.ElementAt(value)].DefaultName, (int)(CalculateDistanceBetween(medicsPlayers.ElementAt(value).PlayerPawn.Value!.AbsOrigin!, player.PlayerPawn.Value!.AbsOrigin!) / 39.37f)]}");
         });
         reviveCounterOption = menu.AddOption($"<font color='gold'>Request Revive:</font> <font color='red'>{DeadPlayersTimer[player].Item2}s</font>", (p, option) =>
         {
@@ -863,7 +844,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     }
     private void DeploySettingsMenu(CCSPlayerController player)
     {
-        if (player == null || !player.IsValid || player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE) return;
+        if (player == null || !player.IsValid || player.PlayerPawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE) return;
 
         if (PlayerStatuses.ContainsKey(player)) PlayerStatuses[player].Status = PlayerStatusType.Dead;
         RemoveGlowOnPlayerWhoRequestMedic(player); // Remove the glow effect on the player who requested revive
@@ -908,10 +889,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     }
     private void SelectDeployPositionsMenu(CCSPlayerController player, QAngle? DeployCameraRotation = null)
     {
-        if (player == null || !player.IsValid || player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE) return;
+        if (player == null || !player.IsValid || player.PlayerPawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE) return;
 
         // Change player's camera position to a high position for better visibility
-        player.Pawn.Value!.ObserverServices.Pawn.Value.Teleport(DeployCameraPosition, DeployCameraRotation == null ? new QAngle(90, 0, 0) : DeployCameraRotation);
+        player.Pawn.Value!.ObserverServices!.Pawn.Value.Teleport(DeployCameraPosition, DeployCameraRotation == null ? new QAngle(90, 0, 0) : DeployCameraRotation);
         var manager = GetMenuManager();
         if (manager == null) return;
 
@@ -938,7 +919,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             menu.AddOption($"<font color='lime'>{position.Name}</font>", (p, option) =>
             {
-                if (position.Player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE)
+                if (position.Player!.PlayerPawn.Value!.LifeState != (byte)LifeState_t.LIFE_ALIVE)
                 {
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.CannotDeployToDeadPlayer"]}");
                     manager.CloseMenu(p);
@@ -974,6 +955,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             if (!PlayersRedeployTimer.ContainsKey(player))
             {
                 var randomPosition = GetRandomDeployPosition(player); // Get a random deploy position for the player
+                while (randomPosition == null) // If no valid random position found, keep trying until a valid position is found
+                {
+                    randomPosition = GetRandomDeployPosition(player);
+                }
                 var spawned = SpawnPlayerAtDeployPosition(player, randomPosition); // Spawn the player at the random deploy position
                 if (spawned) manager.CloseMenu(p);
             }
@@ -998,13 +983,13 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // Change player's camera to deploy position
         if (FocusTheDeployCameraOnDeployPosition)
         {
-            if (deployPosition.Player != null) positionToTeleport = GetFrontPosition(deployPosition.Player.PlayerPawn.Value.AbsOrigin, deployPosition.Player.PlayerPawn.Value.AbsRotation, -80f); // Get a position in backward (-80f) of the deploy position
-            player.Pawn.Value!.ObserverServices.Pawn.Value.Teleport(new Vector(positionToTeleport.X, positionToTeleport.Y, positionToTeleport.Z + (deployPosition.Player != null ? 65f : 250f)), new QAngle(30, deployPosition.Rotation.Y, deployPosition.Rotation.Z));
+            if (deployPosition.Player != null) positionToTeleport = GetFrontPosition(deployPosition.Player.PlayerPawn.Value!.AbsOrigin!, deployPosition.Player.PlayerPawn.Value.AbsRotation!, -80f); // Get a position in backward (-80f) of the deploy position
+            player.Pawn.Value!.ObserverServices!.Pawn.Value.Teleport(new Vector(positionToTeleport.X, positionToTeleport.Y, positionToTeleport.Z + (deployPosition.Player != null ? 65f : 250f)), new QAngle(30, deployPosition.Rotation.Y, deployPosition.Rotation.Z));
         }
         else // Show Glow on Deploy Position
         {
-            var lookAtAngle = GetLookAtAngle(player.Pawn.Value!.ObserverServices.Pawn.Value.AbsOrigin, deployPosition.Position);
-            player.Pawn.Value!.ObserverServices.Pawn.Value.Teleport(DeployCameraPosition, lookAtAngle); // Make the deploy camera to look at deploy position
+            var lookAtAngle = GetLookAtAngle(player.Pawn.Value!.ObserverServices!.Pawn.Value.AbsOrigin!, deployPosition.Position);
+            player.Pawn.Value!.ObserverServices!.Pawn.Value.Teleport(DeployCameraPosition, lookAtAngle); // Make the deploy camera to look at deploy position
 
             // Now set the glow on the deploy position
             if (deployPosition.Player == null)
@@ -1021,7 +1006,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             {
                 var playerGlow = new PlayerGlow
                 {
-                    EntityIndex = deployPosition.Player != null ? deployPosition.Player.Index : deployPosition.Model.Index,
+                    EntityIndex = deployPosition.Player != null ? deployPosition.Player.Index : deployPosition.Model!.Index,
                     GlowType = PlayerGlowType.DeployPosition,
                     Glows = glow
                 };
@@ -1056,7 +1041,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                         else player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.InsufficientSpaceNearPlayer", PlayerStatuses[deployPosition.Player].DefaultName]}");
                     }
                 }
-                var glow = PlayerSeeableGlow[player].FirstOrDefault(g => g.EntityIndex == (deployPosition.Player == null ? deployPosition.Model.Index : deployPosition.Player.Index) && g.GlowType == PlayerGlowType.DeployPosition);
+                var glow = PlayerSeeableGlow[player].FirstOrDefault(g => g.EntityIndex == (deployPosition.Player == null ? deployPosition.Model!.Index : deployPosition.Player.Index) && g.GlowType == PlayerGlowType.DeployPosition);
                 if (glow != null && PlayerSeeableGlow.ContainsKey(player))
                 {
                     PlayerSeeableGlow[player].Remove(glow);
@@ -1073,7 +1058,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             manager.CloseMenu(p);
             SelectDeployPositionsMenu(p, player.Pawn.Value!.ObserverServices.Pawn.Value.V_angle); // Reopen the deploy menu
-            var glow = PlayerSeeableGlow[player].FirstOrDefault(g => g.EntityIndex == (deployPosition.Player == null ? deployPosition.Model.Index : deployPosition.Player.Index) && g.GlowType == PlayerGlowType.DeployPosition);
+            var glow = PlayerSeeableGlow[player].FirstOrDefault(g => g.EntityIndex == (deployPosition.Player == null ? deployPosition.Model!.Index : deployPosition.Player.Index) && g.GlowType == PlayerGlowType.DeployPosition);
             if (glow != null && PlayerSeeableGlow.ContainsKey(player))
             {
                 PlayerSeeableGlow[player].Remove(glow);
@@ -1144,7 +1129,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             manager.OpenMainMenu(player, parentMenu);
         }
 
-        var menu = manager.CreateMenu(Localizer["Menu.BestSquad.Title", bestSquad.SquadName], false, false, true, true, false);
+        var menu = manager.CreateMenu(Localizer["Menu.BestSquad.Title", bestSquad!.SquadName], false, false, true, true, false);
         menu.ParentMenu = parentMenu;
 
         menu.AddOption($"{Localizer["Menu.TotalPoints", bestSquad.TotalPoints]}", (p, option) => { });
@@ -1165,7 +1150,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Now change the PlayerLookingAtSquadPoseEntities to best Squad
         var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
-        UpdateWorldText(worldtext, $"Best Squad:\n{bestSquad.SquadName}", bestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+        UpdateWorldText(worldtext!, $"Best Squad:\n{bestSquad.SquadName}", bestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
         MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (bestSquad, worldtext);
     }
     private void ShowPlayerSquadStats(CCSPlayerController player, IT3Menu parentMenu)
@@ -1175,7 +1160,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         var manager = GetMenuManager();
         if (manager == null) return;
 
-        var playerSquad = GetPlayerSquad(player);
+        var playerSquad = GetPlayerSquad(player)!;
         var menu = manager.CreateMenu(Localizer["Menu.YourSquad.Title", playerSquad.SquadName], false, false, true, true, false);
         menu.ParentMenu = parentMenu;
 
@@ -1197,7 +1182,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Now change the PlayerLookingAtSquadPoseEntities to his squad
         var worldtext = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item2;
-        UpdateWorldText(worldtext, $"Your Squad:\n{playerSquad.SquadName}", playerSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+        UpdateWorldText(worldtext!, $"Your Squad:\n{playerSquad.SquadName}", playerSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
         MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (playerSquad, worldtext);
     }
     public void PrintPlayerStats(CCSPlayerController player)
@@ -1299,13 +1284,12 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MustSelectPositionForCallIn"]}");
                     return;
                 }
-                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera.Remove(); // Remove the call-in attack camera prop
-                player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = ThirdPerson.ContainsKey(player) ? ThirdPerson[player].EntityHandle.Raw : uint.MaxValue;
+                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera!.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera!.Remove(); // Remove the call-in attack camera prop
                 Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
             }
             else
             {
-                PlayerStatuses[player].CallInAttackPosition = GetFrontPosition(player.PlayerPawn!.Value!.AbsOrigin, player.PlayerPawn!.Value!.AbsRotation, 15f); // For Strategic Beacon, set the position in front of the player
+                PlayerStatuses[player].CallInAttackPosition = GetFrontPosition(player.PlayerPawn!.Value!.AbsOrigin!, player.PlayerPawn!.Value!.AbsRotation!, 15f); // For Strategic Beacon, set the position in front of the player
             }    
             StartShooting(player);
             ExecuteCallInAttack(player, attack, PlayerStatuses[player].CallInAttackPosition);
@@ -1317,8 +1301,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             RemoveLaserBeams(PlayerStatuses[player].CallInAttackBeams); // Remove laser beams if any
             if (attack.Name != "Strategic Beacon")
             {
-                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera.Remove(); // Remove the call-in attack camera prop
-                player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = ThirdPerson.ContainsKey(player) ? ThirdPerson[player].EntityHandle.Raw : uint.MaxValue;
+                if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera!.IsValid) PlayerStatuses[player].PlayerCallInAttackCamera!.Remove(); // Remove the call-in attack camera prop
                 Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
             }
             StartShooting(player);

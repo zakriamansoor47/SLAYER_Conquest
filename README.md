@@ -1,4 +1,4 @@
-# SLAYER Conquest Plugin
+# SLAYER Conquest
 
 A comprehensive Capture the Flag gamemode plugin for Counter-Strike 2 servers, featuring squad-based gameplay, class systems, revive mechanics, deployable items, and call-in attacks.
 
@@ -43,7 +43,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 
 - **CounterStrikeSharp**: Latest version
 - **[T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)**: For menu functionality
-- **[CS2TraceRay](https://github.com/schwarper/CS2TraceRay)**: For raytracing functionality
+- **[RayTrace v1.0.7](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases/tag/v1.0.7)**: For raytracing functionality
 - **[Custom Models & Particles](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)**: Workshop collection with required assets
 
 ## ⚙️ Installation
@@ -51,7 +51,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 1. Install CounterStrikeSharp on your server
 2. Install required dependencies:
    - Download and install [T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)
-   - Download and install [CS2TraceRay](https://github.com/schwarper/CS2TraceRay)
+   - Download and install [RayTrace v1.0.7](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases/tag/v1.0.7)
 3. Subscribe to the [Required Assets Workshop Collection](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
 4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_Conquest/`
 5. Configure the plugin using the generated config file
@@ -111,10 +111,6 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
   "PlayerRedeployDelay": 5.0,                                     // Respawn delay for human players (seconds)
   "PlayerBotRedeployDelay": 10.0,                                 // Respawn delay for bots (seconds)
   "RemoveDropWeaponAfterDeath": 10.0,                             // Time before dropped weapons are removed (seconds)
-  "AllowThirdPerson": true,                                       // Enable third-person camera mode
-  "PlayerTPCameraXYOffset": -30.0,                                // Third-person camera distance behind player
-  "PlayerTPCameraZOffset": 75.0,                                  // Third-person camera height above player
-  "PlayerTPCameraRightOffset": -10.0,                             // Third-person camera side offset
   "MatchStartTime": 60.0,                                         // Pre-match preparation time (seconds)
   "MatchEndShowBestSquadTime": 10.0,                              // Duration to display best squad at match end (seconds)
   "MatchEndMapChangeDelay": 20.0,                                 // Delay before changing map after match (seconds)
@@ -393,19 +389,19 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 ## 📚 Admin Commands
 
 ### Main Commands
-- **`!ctf_settings`** - Open flag management menu (Admin only)
-- **`!ctf_start`** - Force start match immediately (Admin only)
-- **`!ctf_end`** - Force end current match (Admin only)
+- **`!settings`** - Open flag management menu (Admin only)
+- **`!startmatch`** - Force start match immediately (Admin only)
+- **`!endmatch`** - Force end current match (Admin only)
 
 ### Point Management
-- **`!ctf_givepoints <player> <amount>`** - Give points to player (Admin only)
-- **`!ctf_takepoints <player> <amount>`** - Remove points from player (Admin only)
+- **`!givepoints <player> <amount>`** - Give points to player (Admin only)
+- **`!takepoints <player> <amount>`** - Remove points from player (Admin only)
 
 ## 🏴 Flag Setup Guide
 
 ### Creating Flags
 1. Connect to your server as an admin
-2. Use `!ctf_settings` command to open the management menu
+2. Use `!settings` command to open the management menu
 3. Select "Create Flag"
 4. Enter a unique flag name (no spaces)
 5. Position yourself where you want the flag

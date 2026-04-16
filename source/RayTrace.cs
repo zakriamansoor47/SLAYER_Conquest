@@ -84,6 +84,7 @@ public partial class SLAYER_Conquest
 		MASK_SHOT_PHYSICS = Solid | PlayerClip | Window | PassBullets | Player | NPC | Physics_Prop,
 		MASK_SHOT_HITBOX = Hitboxes | Player | NPC,
 		MASK_SHOT_FULL = MASK_SHOT_PHYSICS | Hitboxes,
+		MASK_SHOT =  Solid | Player | NPC | Window | Debris | Hitboxes,
 		MASK_WORLD_ONLY = Solid | Window | PassBullets,
 		MASK_GRENADE = Solid | Window | Physics_Prop | PassBullets,
 		MASK_BRUSH_ONLY = Solid | Window,
@@ -396,7 +397,10 @@ public partial class SLAYER_Conquest
 		public CPhysSurfacePropertiesTrace SurfaceProps => SurfacePropsHandle == 0 ? default : Marshal.PtrToStructure<CPhysSurfacePropertiesTrace>(SurfacePropsHandle);
 		public CHitBox Hitbox  => HitboxHandle == 0 ? default : Marshal.PtrToStructure<CHitBox>(HitboxHandle);
 		public CEntityInstance? HitEntity => HitEntityHandle == 0 ? null : new CEntityInstance(HitEntityHandle);
-		public float Distance() => (HitPoint - StartPos).Length();
+		public float Distance()
+		{
+			return Vector3.Distance(HitPoint, StartPos);
+		}
 		public bool HitPlayer(out CCSPlayerController? player)
 		{
 			player = null;

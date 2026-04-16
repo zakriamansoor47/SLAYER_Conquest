@@ -16,21 +16,27 @@ namespace SLAYER_Conquest;
 #pragma warning disable CS0618
 public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
+    private static readonly HashSet<string> ObjectiveDesignerNames = new HashSet<string>
+    {
+        "func_bomb_target",
+        "func_hostage_rescue",
+        "c4",
+        "hostage_entity"
+    };
+
     // ---------------------------------------
     // Useful Funtions
     // ---------------------------------------
     private void RemoveObjectives()
     {
-        foreach (var entity in Utilities.GetAllEntities().Where(entity => entity != null && entity.IsValid))
+        foreach (var entity in Utilities.GetAllEntities())
         {
-            if (entity.DesignerName == "func_bomb_target" ||
-                entity.DesignerName == "func_hostage_rescue" ||
-                entity.DesignerName == "c4" ||
-                entity.DesignerName == "hostage_entity")
+            if (entity == null || !entity.IsValid || string.IsNullOrEmpty(entity.DesignerName)) continue;
+
+            if (ObjectiveDesignerNames.Contains(entity.DesignerName))
             {
                 entity.Remove();
             }
-
         }
     }
     private static Vector GetForwardVector(QAngle angles)
@@ -515,7 +521,15 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 Utilities.SetStateChanged(prop, "CBaseEntity", "m_iHealth");
                 Utilities.SetStateChanged(prop, "CBaseEntity", "m_iMaxHealth");
             }
-            if (!havePhysics) prop.AcceptInput("DisableMotion");
+            if (!havePhysics)
+            {
+                prop.AcceptInput("DisableMotion");
+                // Re-apply transform after spawn to avoid one-frame physics tilt on deployables.
+                if (prop != null && prop.IsValid)
+                {
+                    prop.Teleport(position, angles, Vector.Zero);
+                }
+            }
         });
 
         var bodyComponent = prop.CBodyComponent;
@@ -704,8 +718,19 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         if (player == null || !player.IsValid || string.IsNullOrEmpty(message)) return; // Validate
 
-        foreach(var teammate in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.TeamNum == player.TeamNum))
+        if (activePlayers.Count > 0)
         {
+            foreach (var teammate in activePlayers)
+            {
+                if (teammate == null || !teammate.IsValid || teammate.TeamNum != player.TeamNum) continue;
+                teammate.PrintToChat(message);
+            }
+            return;
+        }
+
+        foreach (var teammate in Utilities.GetPlayers())
+        {
+            if (teammate == null || !teammate.IsValid || teammate.TeamNum != player.TeamNum) continue;
             teammate.PrintToChat(message);
         }
     }
@@ -832,19 +857,15 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     private RecipientFilter? ConvertPlayersListToRecipientFilter(List<CCSPlayerController>? players, bool removeBots)
     {
         if (players == null || players.Count == 0) return null;
-        
-        var validPlayers = players.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected);
-        if (removeBots)
-        {
-            validPlayers = validPlayers.Where(p => !p.IsBot);
-        }
-        
+
         var recipientFilter = new RecipientFilter();
-        foreach (var player in validPlayers)
+        foreach (var player in players)
         {
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected) continue;
+            if (removeBots && player.IsBot) continue;
             recipientFilter.Add(player);
         }
-        
+
         return recipientFilter.Count > 0 ? recipientFilter : null;
     }
     private QAngle ConvertVectorToQAngle(Vector vector)
@@ -1120,7 +1141,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         if (player == null || !player.IsValid || player.PlayerPawn.Value == null) return null;
 
-        TraceByEyePosition(player, new TraceOptions(InteractionLayers.MASK_SHOT_FULL, InteractionLayers.Sky), out var trace);
+        TraceByEyePosition(player, new TraceOptions(InteractionLayers.MASK_SHOT, InteractionLayers.MASK_SHOT), out var trace);
 
         if (!trace.DidHit) return null;
 

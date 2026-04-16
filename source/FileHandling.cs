@@ -1,27 +1,6 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Timers;
-using CounterStrikeSharp.API.Modules.Cvars;
-using CounterStrikeSharp.API.Modules.Menu;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Drawing;
-using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
-
-// Used these to remove compile warnings
-#pragma warning disable CS8600
-#pragma warning disable CS8602
-#pragma warning disable CS8603
-#pragma warning disable CS8604
-#pragma warning disable CS8619
 
 namespace SLAYER_Conquest;
 
@@ -50,7 +29,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     }
     public class FileHandling
     {
-        public class CaptureTheFlagMapConfig
+        public class ConquestMapConfig
         {
             public string DeployCameraPosition { get; set; } = "0 0 2500"; // Default position for the deploy camera
             public string MatchEndCameraPosition { get; set; } = "0 0 2500"; // Default position for the match end camera
@@ -63,16 +42,16 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         }
         public string GetMapFlagPositionConfigPath()
         {
-            string? path = Path.GetDirectoryName(plugin.ModuleDirectory);
+            var path = Path.GetDirectoryName(plugin.ModuleDirectory);
             string configPath;
 
-            configPath = Path.Combine(path, $"../configs/plugins/{plugin.ModuleName}/FlagPositions/{Server.MapName}/FlagPositions.json");
+            configPath = Path.Combine(path!, $"../configs/plugins/{plugin.ModuleName}/FlagPositions/{Server.MapName}/FlagPositions.json");
 
             // Ensure the directory exists
-            string directoryPath = Path.GetDirectoryName(configPath);
+            var directoryPath = Path.GetDirectoryName(configPath);
             if (!Directory.Exists(directoryPath))
             {
-                Directory.CreateDirectory(directoryPath);
+                Directory.CreateDirectory(directoryPath!);
             }
 
             // Create the file if it does not exist
@@ -119,7 +98,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     }
                 }
 
-                string json = JsonSerializer.Serialize(new CaptureTheFlagMapConfig
+                string json = JsonSerializer.Serialize(new ConquestMapConfig
                 {
                     DeployCameraPosition = ConvertVectorToString(plugin.DeployCameraPosition),
                     MatchEndCameraPosition = $"{ConvertVectorToString(plugin.MatchEndCameraPosition.Item1)};{ConvertQAngleToString(plugin.MatchEndCameraPosition.Item2)}",
@@ -130,7 +109,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SLAYER CaptureTheFlag] Error saving Flag positions: {ex.Message}");
+                Console.WriteLine($"[SLAYER Conquest] Error saving Flag positions: {ex.Message}");
             }
         }
 
@@ -140,7 +119,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             if (!File.Exists(configPath))
             {
-                Console.WriteLine("[SLAYER CaptureTheFlag] No Flag position file found.");
+                Console.WriteLine("[SLAYER Conquest] No Flag position file found.");
                 return;
             }
 
@@ -149,14 +128,14 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 string json = File.ReadAllText(configPath);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    Console.WriteLine("[SLAYER CaptureTheFlag] Flag position file is empty.");
+                    Console.WriteLine("[SLAYER Conquest] Flag position file is empty.");
                     return;
                 }
-                var data = JsonSerializer.Deserialize<CaptureTheFlagMapConfig>(json, new JsonSerializerOptions { WriteIndented = true });
+                var data = JsonSerializer.Deserialize<ConquestMapConfig>(json, new JsonSerializerOptions { WriteIndented = true });
 
-                plugin.DeployCameraPosition = ConvertStringToVector(data.DeployCameraPosition);
+                plugin.DeployCameraPosition = ConvertStringToVector(data!.DeployCameraPosition)!;
                 var matchEndCameraPosition = data.MatchEndCameraPosition.Split(';');
-                plugin.MatchEndCameraPosition = (ConvertStringToVector(matchEndCameraPosition[0]), ConvertStringToQAngle(matchEndCameraPosition[1]));
+                plugin.MatchEndCameraPosition = (ConvertStringToVector(matchEndCameraPosition[0])!, ConvertStringToQAngle(matchEndCameraPosition[1])!);
 
                 if (data != null && data.FlagPositions.Any())
                 {
@@ -169,19 +148,13 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 }
                 else
                 {
-                    Console.WriteLine($"[SLAYER CaptureTheFlag] No flag positions found for map '{Server.MapName}'.");
+                    Console.WriteLine($"[SLAYER Conquest] No flag positions found for map '{Server.MapName}'.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SLAYER CaptureTheFlag] Error loading flag positions: {ex.Message}");
+                Console.WriteLine($"[SLAYER Conquest] Error loading flag positions: {ex.Message}");
             }
-        }
-        private float CalculateDistanceBetween(Vector point1, Vector point2)
-        {
-            float dx = point2.X - point1.X;
-            float dy = point2.Y - point1.Y;
-            return (float)Math.Sqrt(dx * dx + dy * dy);
         }
     }
 }

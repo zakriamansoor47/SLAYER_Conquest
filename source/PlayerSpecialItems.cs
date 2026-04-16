@@ -10,6 +10,10 @@ namespace SLAYER_Conquest;
 
 public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
+    // Most custom models in this plugin are authored with a forward axis offset relative to Source yaw.
+    // Keep this centralized so it is easy to tweak if future models differ.
+    private const float DeployableYawCorrection = -90f;
+
     // Add this dictionary to track deployed spawn radios
     public Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)> DeployedSpawnRadios = new Dictionary<Vector, (CCSPlayerController deployer, PlayerSquad squad, float deployTime)>();
     public List<DeployedItemInfo> DroppedAmmoPouches = new List<DeployedItemInfo>();
@@ -274,14 +278,50 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     }
 
     /// <summary>
+    /// Builds a deploy transform in front of the player with stable yaw-only rotation and optional ground snapping.
+    /// </summary>
+    private bool TryGetDeployTransform(CCSPlayerController player, float distance, out Vector deployPosition, out QAngle deployAngles, float yawOffset = 0f, float groundZOffset = 0f, bool snapToGround = true)
+    {
+        deployPosition = Vector.Zero;
+        deployAngles = QAngle.Zero;
+
+        if (player == null || !player.IsValid || player.PlayerPawn.Value == null || player.PlayerPawn.Value.AbsOrigin == null || player.PlayerPawn.Value.EyeAngles == null)
+            return false;
+
+        var pawn = player.PlayerPawn.Value;
+        var targetPos = GetPositionAtDirection(pawn.AbsOrigin, pawn.EyeAngles, distance);
+
+        if (snapToGround)
+        {
+            // Trace down from above the candidate position so deployables sit cleanly on floors/steps.
+            var traceStart = new Vector(targetPos.X, targetPos.Y, targetPos.Z + 64f);
+            var traceEnd = new Vector(targetPos.X, targetPos.Y, targetPos.Z - 128f);
+
+            if (TraceShape(traceStart, traceEnd, pawn, DefaultTraceOptions, out var groundTrace) && groundTrace.DidHit)
+            {
+                targetPos = new Vector(targetPos.X, targetPos.Y, groundTrace.EndPos.Z + groundZOffset);
+            }
+            else
+            {
+                targetPos = new Vector(targetPos.X, targetPos.Y, targetPos.Z + groundZOffset);
+            }
+        }
+        else if (Math.Abs(groundZOffset) > float.Epsilon)
+        {
+            targetPos = new Vector(targetPos.X, targetPos.Y, targetPos.Z + groundZOffset);
+        }
+
+        deployPosition = targetPos;
+        deployAngles = new QAngle(0f, pawn.EyeAngles.Y + yawOffset, 0f);
+        return true;
+    }
+
+    /// <summary>
     /// Use ReconRadio - Deploy spawn point for squad (multiple radios allowed)
     /// </summary>
     private bool UseReconRadio(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
-        var playerAngles = player.PlayerPawn.Value?.EyeAngles;
-
-        if (playerPos == null || playerAngles == null) return false;
+        if (!TryGetDeployTransform(player, 15f, out var deployPos, out var deployAngles, DeployableYawCorrection, 1f)) return false;
 
         var playerSquad = GetPlayerSquad(player);
         if (playerSquad == null)
@@ -316,11 +356,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             radioItem.CleanupAllDeployedEntities();
         }
 
-        // Deploy radio in front of player
-        var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
-
         // Create radio entity
-        var radioEntity = CreateStaticEntity("models/slayer/radio/radio.vmdl", deployPos, player.PlayerPawn.Value!.AbsRotation!, true, 200);
+        var radioEntity = CreateStaticEntity("models/slayer/radio/radio.vmdl", deployPos, deployAngles, true, 200);
         if (radioEntity == null) return false;
 
         // Create new deployed item info
@@ -344,7 +381,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             if (member != null && member.IsValid)
             {
-                AddDeployPosition(member, deployPos, QAngle.Zero, $"Recon Radio: {PlayerStatuses[member].DefaultName}", null, radioEntity.As<CDynamicProp>(), true);
+                AddDeployPosition(member, deployPos, deployAngles, $"Recon Radio: {PlayerStatuses[member].DefaultName}", null, radioEntity.As<CDynamicProp>(), true);
             }
         }
 
@@ -379,10 +416,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private bool UseMedkit(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
-        var playerAngles = player.PlayerPawn.Value?.EyeAngles;
-
-        if (playerPos == null || playerAngles == null) return false;
+        if (!TryGetDeployTransform(player, 15f, out var deployPos, out var deployAngles, DeployableYawCorrection, 1f)) return false;
 
         // Get the Medkit item
         var medkitItem = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "Medkit");
@@ -394,11 +428,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             medkitItem.CleanupAllDeployedEntities();
         }
 
-        // Deploy medkit in front of player
-        var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
-
         // Create medkit entity
-        var medkitEntity = CreateStaticEntity("models/slayer/medic_kit/medic_kit.vmdl", deployPos, player.PlayerPawn.Value!.AbsRotation!, true, 200);
+        var medkitEntity = CreateStaticEntity("models/slayer/medic_kit/medic_kit.vmdl", deployPos, deployAngles, true, 200);
         if (medkitEntity == null) return false;
 
         // Create new deployed item info
@@ -431,10 +462,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private bool UseAmmoBox(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
-        var playerAngles = player.PlayerPawn.Value?.EyeAngles;
-
-        if (playerPos == null || playerAngles == null) return false;
+        if (!TryGetDeployTransform(player, 15f, out var deployPos, out var deployAngles, DeployableYawCorrection, 1f)) return false;
 
         // Get the AmmoBox item
         var ammoBoxItem = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "AmmoBox");
@@ -446,11 +474,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             ammoBoxItem.CleanupAllDeployedEntities();
         }
 
-        // Deploy ammo box in front of player
-        var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
-
         // Create ammo box entity
-        var ammoBoxEntity = CreateStaticEntity("models/slayer/ammo_box/ammo_box.vmdl", deployPos, player.PlayerPawn.Value!.AbsRotation!, true, 200);
+        var ammoBoxEntity = CreateStaticEntity("models/slayer/ammo_box/ammo_box.vmdl", deployPos, deployAngles, true, 200);
         if (ammoBoxEntity == null) return false;
 
         // Create new deployed item info
@@ -483,10 +508,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private bool UseClaymore(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
-        var playerAngles = player.PlayerPawn.Value?.EyeAngles;
-
-        if (playerPos == null || playerAngles == null) return false;
+        if (!TryGetDeployTransform(player, 15f, out var deployPos, out var deployAngles, DeployableYawCorrection, 1f)) return false;
 
         // Get the Claymore item
         var claymoreItem = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "Claymore");
@@ -507,11 +529,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             return false;
         }
 
-        // Deploy claymore in front of player
-        var deployPos = GetPositionAtDirection(playerPos, playerAngles, 15f);
-
         // Create claymore entity
-        var claymoreEntity = CreateStaticEntity("models/slayer/claymore/claymore.vmdl", deployPos, player.PlayerPawn.Value!.AbsRotation!, true, 200);
+        var claymoreEntity = CreateStaticEntity("models/slayer/claymore/claymore.vmdl", deployPos, deployAngles, true, 200);
         if (claymoreEntity == null) return false;
 
         // Create new deployed item info
@@ -575,49 +594,66 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private bool UseMedicPouch(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
+        var playerPawn = player.PlayerPawn.Value;
+        var playerPos = playerPawn?.AbsOrigin;
         if (playerPos == null) return false;
+
+        if (!Config.SpecialItems.TryGetValue("MedicPouch", out var medicPouchConfig))
+            return false;
+
+        var medicPouchItem = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "MedicPouch");
+        if (medicPouchItem == null) return false;
+
+        float rangeSq = medicPouchConfig.Range * medicPouchConfig.Range;
+        float pickupCooldown = medicPouchConfig.PlayerPickupCooldown;
+        var traceOptions = new TraceOptions((InteractionLayers)playerPawn!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsExclude);
 
         int healed = 0;
 
-        foreach (var target in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == player.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p != player))
+        foreach (var target in activePlayers)
         {
-            var targetPos = target.PlayerPawn.Value?.CBodyComponent?.SceneNode?.AbsOrigin;
-            if (targetPos == null) continue;
+            if (target == null || !target.IsValid || target.Connected != PlayerConnectedState.PlayerConnected || target.IsHLTV || target.TeamNum != player.TeamNum || target == player)
+                continue;
 
-            float distance = CalculateDistanceBetween(playerPos, targetPos);
-            if (distance <= Config.SpecialItems["MedicPouch"].Range && !IsPlayerBehind(player, target) && IsPlayerDetected(new Vector(playerPos.X, playerPos.Y, playerPos.Z + 15f), new Vector(targetPos.X, targetPos.Y, targetPos.Z + 15f), new TraceOptions((InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)player.PlayerPawn.Value!.Collision.CollisionAttribute.InteractsExclude), player.PlayerPawn.Value)) // 200 unit radius
+            var targetPawn = target.PlayerPawn.Value;
+            if (targetPawn == null || targetPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE)
+                continue;
+
+            var targetPos = targetPawn.CBodyComponent?.SceneNode?.AbsOrigin;
+            if (targetPos == null)
+                continue;
+
+            if (DistanceSquared(playerPos, targetPos) <= rangeSq && !IsPlayerBehind(player, target) && IsPlayerDetected(new Vector(playerPos.X, playerPos.Y, playerPos.Z + 15f), new Vector(targetPos.X, targetPos.Y, targetPos.Z + 15f), traceOptions, playerPawn)) // 200 unit radius
             {
                 // Heal target by 50 HP, not exceeding max health
-                var currentHealth = target.PlayerPawn.Value!.Health;
-                var maxHealth = target.PlayerPawn.Value.MaxHealth;
+                var currentHealth = targetPawn.Health;
+                var maxHealth = targetPawn.MaxHealth;
 
                 if (currentHealth < maxHealth)
                 {
-                    // Get the MedicPouch item
-                    var Item = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "MedicPouch");
-                    if (Item == null) return false;
-
-                    if (Item.IsPlayerOnPickupCooldown(target, Config.SpecialItems["MedicPouch"].PlayerPickupCooldown)) continue;
-
-                    var Isthrown = ThrowPouch(player, target, true);
-                    if (!Isthrown) continue;
+                    if (medicPouchItem.IsPlayerOnPickupCooldown(target, pickupCooldown)) continue;
 
                     int healAmount = Math.Min(50, maxHealth - currentHealth);
+                    if (healAmount <= 0) continue;
+
                     HealPlayer(target, healAmount);
+
+                    // Visual-only effect: throw pouch only after a successful heal event.
+                    ThrowPouch(player, target, true);
 
                     target.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.HealedBy", healAmount, player.PlayerName]}");
                     healed++;
 
                     GivePlayerPoints(player, Config.PlayerPoints.GiveMedicPouchPoints);
 
-                    Item.SetPlayerPickupCooldown(target);
+                    medicPouchItem.SetPlayerPickupCooldown(target);
                 }
             }
         }
 
         if (healed > 0)
         {
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.HealedTeammates", healed]}");
             return true;
         }
 
@@ -628,45 +664,56 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private bool UseAmmoPouch(CCSPlayerController player)
     {
-        var playerPos = player.PlayerPawn.Value?.AbsOrigin;
+        var playerPawn = player.PlayerPawn.Value;
+        var playerPos = playerPawn?.AbsOrigin;
         if (playerPos == null) return false;
+
+        if (!Config.SpecialItems.TryGetValue("AmmoPouch", out var ammoPouchConfig))
+            return false;
+
+        var ammoPouchItem = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "AmmoPouch");
+        if (ammoPouchItem == null) return false;
+
+        float rangeSq = ammoPouchConfig.Range * ammoPouchConfig.Range;
+        float pickupCooldown = ammoPouchConfig.PlayerPickupCooldown;
+        var traceOptions = new TraceOptions((InteractionLayers)playerPawn!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsExclude);
 
         int supplied = 0;
 
-        foreach (var target in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE && p.TeamNum == player.TeamNum && p != player))
+        foreach (var target in activePlayers)
         {
-            var targetPos = target.PlayerPawn.Value?.AbsOrigin;
-            if (targetPos == null) continue;
+            if (target == null || !target.IsValid || target.Connected != PlayerConnectedState.PlayerConnected || target.IsHLTV || target.TeamNum <= 1 || target.TeamNum != player.TeamNum || target == player)
+                continue;
 
-            float distance = CalculateDistanceBetween(playerPos, targetPos);
-            if (distance <= Config.SpecialItems["AmmoPouch"].Range && !IsPlayerBehind(player, target) && IsPlayerDetected(new Vector(playerPos.X, playerPos.Y, playerPos.Z + 15f), new Vector(targetPos.X, targetPos.Y, targetPos.Z + 15f), new TraceOptions((InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)player.PlayerPawn.Value!.Collision.CollisionAttribute.InteractsExclude), player.PlayerPawn.Value)) // 200 unit radius
+            var targetPawn = target.PlayerPawn.Value;
+            if (targetPawn == null || targetPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE)
+                continue;
+
+            var targetPos = targetPawn.AbsOrigin;
+            if (targetPos == null)
+                continue;
+
+            if (DistanceSquared(playerPos, targetPos) <= rangeSq && !IsPlayerBehind(player, target) && IsPlayerDetected(new Vector(playerPos.X, playerPos.Y, playerPos.Z + 15f), new Vector(targetPos.X, targetPos.Y, targetPos.Z + 15f), traceOptions, playerPawn)) // 200 unit radius
             {
-                // Get the AmmoPouch item
-                var Item = PlayerStatuses[player].PlayerItems?.FirstOrDefault(x => x.ItemName == "AmmoPouch");
-                if (Item == null) return false;
-
-                if (Item.IsPlayerOnPickupCooldown(target, Config.SpecialItems["AmmoPouch"].PlayerPickupCooldown)) continue;
-
-                var Isthrown = ThrowPouch(player, target, false);
-                if (!Isthrown) continue;
+                if (ammoPouchItem.IsPlayerOnPickupCooldown(target, pickupCooldown)) continue;
 
                 // Give partial ammo and special items (but no grenades for balance)
                 bool itemsGiven = GivePlayerAmmo(target, 0.25f, true, true); // 25% ammo restore
+                if (!itemsGiven) continue;
 
-                if (itemsGiven)
-                {
-                    target.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.AmmoReceivedFrom", player.PlayerName]}");
-                    supplied++;
-                    GivePlayerPoints(player, Config.PlayerPoints.GiveAmmoPouchPoints);
-                    Item.SetPlayerPickupCooldown(target);
-                }
-                
+                // Visual-only effect: throw pouch only when a teammate actually received ammo/items.
+                ThrowPouch(player, target, false);
+
+                target.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.AmmoReceivedFrom", player.PlayerName]}");
+                supplied++;
+                GivePlayerPoints(player, Config.PlayerPoints.GiveAmmoPouchPoints);
+                ammoPouchItem.SetPlayerPickupCooldown(target);
             }
         }
 
         if (supplied > 0)
         {
-            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.SuppliedAmmoToTeammates", supplied]}");
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.SuppliedTeammates", supplied]}");
             return true;
         }
 
@@ -830,6 +877,15 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             position.Y >= minBounds.Y && position.Y <= maxBounds.Y &&
             position.Z >= minBounds.Z && position.Z <= maxBounds.Z;
     }
+
+    private static float DistanceSquared(Vector a, Vector b)
+    {
+        float dx = b.X - a.X;
+        float dy = b.Y - a.Y;
+        float dz = b.Z - a.Z;
+        return (dx * dx) + (dy * dy) + (dz * dz);
+    }
+
     private void DropAmmoPouch(CCSPlayerController player)
     {
         if (!Config.PlayerDropAmmoPouchOnDeath || player == null || !player.IsValid) return;
@@ -870,66 +926,98 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         if (!deployedItem.IsValid || deployedItem.Entity == null || !deployedItem.Entity.IsValid) return;
 
+        var entity = deployedItem.Entity;
+        var entityPos = entity.AbsOrigin;
+        if (entityPos == null) return;
+
+        var beaconColor = Color.FromName(deployerTeam == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor);
+
         // Ensure it's on the ground (stopped moving/falling) before drawing beacon
-        if (deployedItem.BeaconBeams == null && IsEqualVector(deployedItem.Entity.AbsOrigin!, deployedItem.Position))
+        /*if (deployedItem.BeaconBeams == null && IsEqualVector(entityPos, deployedItem.Position))
         {
             // Draw beacon if not already drawn
-            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployerTeam == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
+            deployedItem.Position = entityPos;
+            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(entityPos.X, entityPos.Y, entityPos.Z - 5f), 8f, 6, beaconColor, 0.5f);
         }
-        // Move beacon if item is moved
-        else if (deployedItem.BeaconBeams != null && deployedItem.BeaconBeams[0] != null && deployedItem.BeaconBeams[0].IsValid && deployedItem.BeaconBeams[0].AbsOrigin!.Z != deployedItem.Entity.AbsOrigin!.Z)
+        // Move beacon if item is moved or beacon got invalidated.
+        else if (deployedItem.BeaconBeams != null && deployedItem.BeaconBeams.Count > 0)
         {
-            // Remove old beams
-            foreach (var beam in deployedItem.BeaconBeams.Where(beam => beam != null && beam.IsValid))
+            var firstBeam = deployedItem.BeaconBeams[0];
+            bool shouldRefresh = firstBeam == null || !firstBeam.IsValid || firstBeam.AbsOrigin == null || Math.Abs(firstBeam.AbsOrigin.Z - entityPos.Z) > 1f;
+            if (shouldRefresh)
             {
-                beam.Remove();
-            }
-            // Draw beacon at new position
-            deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z - 5f), 8f, 6, Color.FromName(deployerTeam == 3 ? Config.TerroristTeamColor : Config.CTerroristTeamColor), 0.5f);
-        }
+                // Remove old beams
+                foreach (var beam in deployedItem.BeaconBeams)
+                {
+                    if (beam == null || !beam.IsValid) continue;
+                    beam.Remove();
+                }
 
-        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.TeamNum != deployerTeam && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+                // Draw beacon at new position
+                deployedItem.Position = entityPos;
+                deployedItem.BeaconBeams = DrawBeaconCircle(new Vector(entityPos.X, entityPos.Y, entityPos.Z - 5f), 8f, 6, beaconColor, 0.5f);
+            }
+        }*/
+
+        const float pickupRadiusSq = 50f * 50f;
+        foreach (var player in activePlayers)
         {
-            var playerPos = player.PlayerPawn.Value?.AbsOrigin;
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1 || player.TeamNum == deployerTeam) continue;
+
+            var playerPawn = player.Pawn.Value;
+            if (playerPawn == null || playerPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
+            var playerPos = playerPawn.AbsOrigin;
             if (playerPos == null) continue;
 
-            float distance = CalculateDistanceBetween(deployedItem.Entity.AbsOrigin!, playerPos);
-            if (distance <= 50) // pickup radius
+            if (DistanceSquared(entityPos, playerPos) <= pickupRadiusSq) // pickup radius
             {
                 // Give partial ammo and special items (but no grenades for balance)
                 var ammoGiven = GivePlayerAmmo(player, 0.25f, false, false); // 25% ammo restore
                 if (ammoGiven)
                 {
                     deployedItem.CleanupEntity();
-                    if (DroppedAmmoPouches.Contains(deployedItem)) DroppedAmmoPouches.Remove(deployedItem);
+                    DroppedAmmoPouches.Remove(deployedItem);
                     return;
                 }
             }
         }
-        if(DroppedAmmoPouches.Contains(deployedItem))  deployedItem.Position = deployedItem.Entity.AbsOrigin ?? deployedItem.Position; // Update position in case it moved
+
+        deployedItem.Position = entityPos; // Update position in case it moved
     }
     /// <summary>
     /// Check for medkit pickup (updated for specific deployed item)
     /// </summary>
     private void CheckMedkitPickup(CCSPlayerController deployer, PlayerSpecificItems medkitItem, DeployedItemInfo deployedItem)
     {
-        if (!deployedItem.IsValid) return;
+        if (deployer == null || !deployer.IsValid || !deployedItem.IsValid) return;
 
-        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.TeamNum == deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        if (!Config.SpecialItems.TryGetValue("Medkit", out var medkitConfig)) return;
+
+        int deployerTeam = deployer.TeamNum;
+        float pickupRangeSq = medkitConfig.Range * medkitConfig.Range;
+        float pickupCooldown = medkitConfig.PlayerPickupCooldown;
+        var deployPos = deployedItem.Position;
+
+        foreach (var player in activePlayers)
         {
-            var playerPos = player.PlayerPawn.Value?.AbsOrigin;
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1 || player.TeamNum != deployerTeam) continue;
+
+            var playerPawn = player.Pawn.Value;
+            if (playerPawn == null || playerPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
+            var playerPos = playerPawn.AbsOrigin;
             if (playerPos == null) continue;
 
-            float distance = CalculateDistanceBetween(deployedItem.Position, playerPos);
-            if (distance <= Config.SpecialItems["Medkit"].Range) // pickup radius
+            if (DistanceSquared(deployPos, playerPos) <= pickupRangeSq) // pickup radius
             {
                 // Check cooldown (30 seconds)
-                if (medkitItem.IsPlayerOnPickupCooldown(player, Config.SpecialItems["Medkit"].PlayerPickupCooldown))
+                if (medkitItem.IsPlayerOnPickupCooldown(player, pickupCooldown))
                     continue;
 
                 // Check if player needs health
-                var currentHealth = player.PlayerPawn.Value!.Health;
-                var maxHealth = player.PlayerPawn.Value.MaxHealth;
+                var currentHealth = playerPawn.Health;
+                var maxHealth = playerPawn.MaxHealth;
 
                 if (currentHealth < maxHealth)
                 {
@@ -999,28 +1087,36 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private void CheckAmmoBoxPickup(CCSPlayerController deployer, PlayerSpecificItems ammoBoxItem, DeployedItemInfo deployedItem)
     {
-        if (!deployedItem.IsValid) return;
+        if (deployer == null || !deployer.IsValid || !deployedItem.IsValid) return;
 
-        var players = activePlayers;
-        foreach (var player in players.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum == deployer.TeamNum && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        if (!Config.SpecialItems.TryGetValue("AmmoBox", out var ammoBoxConfig)) return;
+
+        int deployerTeam = deployer.TeamNum;
+        float pickupRangeSq = ammoBoxConfig.Range * ammoBoxConfig.Range;
+        float pickupCooldown = ammoBoxConfig.PlayerPickupCooldown;
+        var deployPos = deployedItem.Position;
+        bool deployerRestricted = ammoBoxItem.RemainingCooldown > 0;
+
+        foreach (var player in activePlayers)
         {
-            if (player == null || !player.IsValid || player.TeamNum != deployer.TeamNum)
-                continue;
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum != deployerTeam) continue;
 
-            var playerPos = player.PlayerPawn.Value?.AbsOrigin;
+            var playerPawn = player.Pawn.Value;
+            if (playerPawn == null || playerPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
+            var playerPos = playerPawn.AbsOrigin;
             if (playerPos == null) continue;
 
-            float distance = CalculateDistanceBetween(deployedItem.Position, playerPos);
-            if (distance <= Config.SpecialItems["AmmoBox"].Range) // pickup radius
+            if (DistanceSquared(deployPos, playerPos) <= pickupRangeSq) // pickup radius
             {
                 // Check cooldown (30 seconds)
-                if (ammoBoxItem.IsPlayerOnPickupCooldown(player, Config.SpecialItems["AmmoBox"].PlayerPickupCooldown))
+                if (ammoBoxItem.IsPlayerOnPickupCooldown(player, pickupCooldown))
                     continue;
 
                 // Give ammo
-                bool ammoGiven = false;
-                if (deployer.IsValid && player == deployer && ammoBoxItem.RemainingCooldown > 0) ammoGiven = GivePlayerAmmo(player, 1, true, false); // Restore everything except special items if deployer is on cooldown
-                else ammoGiven = GivePlayerAmmo(player, 1f, true, true); // restore everything
+                bool ammoGiven = deployerRestricted && ReferenceEquals(player, deployer)
+                    ? GivePlayerAmmo(player, 1f, true, false) // Restore everything except special items if deployer is on cooldown
+                    : GivePlayerAmmo(player, 1f, true, true); // restore everything
 
 
                 if (ammoGiven)
@@ -1044,64 +1140,93 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     private void CheckClaymoreProximity(CCSPlayerController deployer, PlayerSpecificItems claymoreItem, DeployedItemInfo deployedItem, bool forceExplode = false)
     {
-        if (!deployedItem.IsValid) return;
+        if (deployer == null || !deployer.IsValid || !deployedItem.IsValid) return;
+        if (!Config.SpecialItems.TryGetValue("Claymore", out var claymoreConfig)) return;
 
+        var claymoreEntity = deployedItem.Entity;
+        if (claymoreEntity == null || !claymoreEntity.IsValid) return;
+
+        int deployerTeam = deployer.TeamNum;
         var position = deployedItem.Position;
+        var detectionOrigin = new Vector(position.X, position.Y, position.Z + 5f);
 
-        // nearby players
-        List<(CCSPlayerController, float)> players = new List<(CCSPlayerController, float)>();
-        bool triggerd = false;
-        foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p.Pawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE))
+        float soundRadiusSq = 1000f * 1000f;
+        float triggerRangeSq = claymoreConfig.Range * claymoreConfig.Range;
+        float damageRangeSq = 200f * 200f;
+
+        bool triggered = forceExplode;
+
+        if (!triggered)
         {
-            var playerPos = player.PlayerPawn.Value?.AbsOrigin;
-            if (playerPos == null) continue;
+            foreach (var player in activePlayers)
+            {
+                if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1 || player.TeamNum == deployerTeam) continue;
 
-            float distance = CalculateDistanceBetween(position, playerPos);
-            if (distance <= 1000f) // 1000 units to play explosion sound
-            {
-                players.Add((player, distance));
-            }
-            if (distance <= Config.SpecialItems["Claymore"].Range && player.TeamNum != deployer.TeamNum) // trigger radius (only enemies)
-            {
-                playerPos = new Vector(playerPos.X, playerPos.Y, playerPos.Z + 10f);
-                var pos = new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z + 5f);
-                var isDetected = IsPlayerDetected(pos, playerPos, new TraceOptions((InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)player.PlayerPawn.Value!.Collision.CollisionAttribute.InteractsExclude), player.PlayerPawn.Value); // only trigger if player is detected infront of claymore, not behind walls
-                if (isDetected) triggerd = true;
+                var playerPawn = player.PlayerPawn.Value;
+                if (playerPawn == null || playerPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
+                var playerPos = playerPawn.AbsOrigin;
+                if (playerPos == null || DistanceSquared(position, playerPos) > triggerRangeSq) continue;
+
+                var detectionTarget = new Vector(playerPos.X, playerPos.Y, playerPos.Z + 10f);
+                var traceOptions = new TraceOptions((InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsExclude);
+                if (IsPlayerDetected(detectionOrigin, detectionTarget, traceOptions, playerPawn))
+                {
+                    triggered = true;
+                    break;
+                }
             }
         }
 
-        if (triggerd || forceExplode) // explode if triggered or forced (for cleanup)
+        if (!triggered) return;
+
+        foreach (var player in activePlayers)
         {
-            foreach (var (player, distance) in players.Where(p => p.Item1 != null && p.Item1.IsValid))
+            if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1) continue;
+
+            var playerPawn = player.PlayerPawn.Value;
+            if (playerPawn == null || playerPawn.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+
+            var playerPos = playerPawn.AbsOrigin;
+            if (playerPos == null) continue;
+
+            var distanceSq = DistanceSquared(position, playerPos);
+            if (distanceSq > soundRadiusSq) continue;
+
+            float distance = MathF.Sqrt(distanceSq);
+            float volume = Math.Clamp(1.0f - (distance / 1000f), 0.1f, 1.0f); // Volume based on distance
+
+            if (distanceSq <= damageRangeSq && player.TeamNum != deployerTeam)
             {
-                float volume = Math.Clamp(1.0f - (distance / 1000f), 0.1f, 1.0f); // Volume based on distance
-                var playerPos = new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + 10f); 
-                var pos = new Vector(deployedItem.Position.X, deployedItem.Position.Y, deployedItem.Position.Z + 5f);
-                if (distance <= 200f && player.TeamNum != deployer.TeamNum && IsPlayerDetected(pos, playerPos, new TraceOptions((InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)player.PlayerPawn!.Value!.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)player.PlayerPawn.Value!.Collision.CollisionAttribute.InteractsExclude), player.PlayerPawn.Value)) // 200 unit lethal radius and only damage enemies which are detected
+                var detectionTarget = new Vector(playerPos.X, playerPos.Y, playerPos.Z + 10f);
+                var traceOptions = new TraceOptions((InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsAs, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsWith, (InteractionLayers)playerPawn.Collision.CollisionAttribute.InteractsExclude);
+
+                if (IsPlayerDetected(detectionOrigin, detectionTarget, traceOptions, playerPawn)) // only damage enemies that are detected
                 {
                     int damage = GetDamageOnDistanceBase(distance, 200, 20, 250);
-                    if (damage >= player.PlayerPawn.Value.Health) // player will be killed
+                    if (damage >= playerPawn.Health && PlayerStatuses.ContainsKey(player)) // player will be killed
                     {
                         PlayerStatuses[player].LastKilledWith = "Claymore";
                     }
+
                     TakeDamage(player, deployer, damage);
-                    Utilities.SetStateChanged(player.PlayerPawn.Value, "CBaseEntity", "m_iHealth");
-                    if (player.PlayerPawn.Value.Health <= 0)
+                    Utilities.SetStateChanged(playerPawn, "CBaseEntity", "m_iHealth");
+                    if (playerPawn.Health <= 0)
                     {
                         player.CommitSuicide(true, true);
                     }
                     //if(deployer.IsValid) deployer.PrintToChat($"{Localizer["Chat.Prefix"]} {ChatColors.Green}Your claymore has exploded! Damage given to {ChatColors.Yellow}{player.PlayerName}{ChatColors.Green} for {ChatColors.Lime}{damage}|{player.PlayerPawn.Value.Health} HP{(player.PlayerPawn.Value.Health <= 0 ? $"{ChatColors.Green} (KILL)!" : "!")}");
                 }
-                // Play sound for all nearby players
-                if(deployedItem.Entity != null) deployedItem.Entity.EmitSound("BaseGrenade.Explode", new RecipientFilter { player }, volume); // play explosion sound
             }
-            // Clean up this specific claymore
-            claymoreItem.CleanupDeployedEntity(deployedItem);
-            // Play explosion effect
-            ParticleCreate("particles/explosions_fx/explosion_hegrenade.vpcf", position, QAngle.Zero);
-            ExplodeNearbyClaymores(position, deployer, 200f); // chain reaction for nearby claymores
-            
+
+            claymoreEntity.EmitSound("BaseGrenade.Explode", new RecipientFilter { player }, volume); // play explosion sound
         }
+
+        // Clean up this specific claymore
+        claymoreItem.CleanupDeployedEntity(deployedItem);
+        // Play explosion effect
+        ParticleCreate("particles/explosions_fx/explosion_hegrenade.vpcf", position, QAngle.Zero);
+        ExplodeNearbyClaymores(position, deployer, 200f); // chain reaction for nearby claymores
     }
     public int GetDamageOnDistanceBase(float distance, float maxDistance, int minDamage, int maxDamage)
     {
@@ -1117,24 +1242,36 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         if (attacker == null || !attacker.IsValid) return;
         try
         {
-            var claymoreItems = PlayerStatuses.SelectMany(ps => ps.Value.PlayerItems ?? new List<PlayerSpecificItems>()).Where(item => item.ItemName == "Claymore");
+            float radiusSq = radius * radius;
+            var claymoresToExplode = new List<(PlayerSpecificItems item, DeployedItemInfo deployedItem)>();
 
-            foreach (var claymoreItem in claymoreItems)
+            foreach (var playerStatus in PlayerStatuses.Values)
             {
-                if (claymoreItem?.DeployedEntities == null) continue;
+                var playerItems = playerStatus.PlayerItems;
+                if (playerItems == null || playerItems.Count == 0) continue;
 
-                foreach (var deployedItem in claymoreItem.DeployedEntities.ToList())
+                foreach (var playerItem in playerItems)
                 {
-                    if (deployedItem != null && deployedItem.IsValid)
+                    if (playerItem == null || playerItem.ItemName != "Claymore" || playerItem.DeployedEntities == null || playerItem.DeployedEntities.Count == 0) continue;
+
+                    foreach (var deployedItem in playerItem.DeployedEntities)
                     {
-                        float distance = CalculateDistanceBetween(position, deployedItem.Position);
-                        if (distance <= radius)
+                        if (deployedItem == null || !deployedItem.IsValid) continue;
+
+                        if (DistanceSquared(position, deployedItem.Position) <= radiusSq)
                         {
-                            // Simulate proximity trigger
-                            CheckClaymoreProximity(attacker, claymoreItem, deployedItem, true);
+                            claymoresToExplode.Add((playerItem, deployedItem));
                         }
                     }
                 }
+            }
+
+            foreach (var (claymoreItem, deployedItem) in claymoresToExplode)
+            {
+                if (deployedItem == null || !deployedItem.IsValid) continue;
+
+                // Simulate proximity trigger
+                CheckClaymoreProximity(attacker, claymoreItem, deployedItem, true);
             }
         }
         catch { }
@@ -1220,12 +1357,20 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     {
                         int currentAmmo = weapon.ReserveAmmo[0];
                         int maxAmmo = weaponVData.PrimaryReserveAmmoMax;
-                        
-                        if (currentAmmo < maxAmmo)
+
+                        if (maxAmmo <= 0 || currentAmmo >= maxAmmo)
                         {
-                            int ammoToGive = (int)(maxAmmo * ammoPercentage);
+                            continue;
+                        }
+
+                        int ammoToGive = ammoPercentage <= 0f
+                            ? 0
+                            : Math.Max(1, (int)MathF.Ceiling(maxAmmo * ammoPercentage));
+
+                        if (ammoToGive > 0)
+                        {
                             int newAmmo = Math.Min(maxAmmo, currentAmmo + ammoToGive);
-                            
+
                             if (newAmmo > currentAmmo)
                             {
                                 weapon.ReserveAmmo[0] = newAmmo;

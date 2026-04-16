@@ -1,27 +1,4 @@
-using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Timers;
-using CounterStrikeSharp.API.Modules.Cvars;
-using CounterStrikeSharp.API.Modules.Menu;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Drawing;
-using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
-
-// Used these to remove compile warnings
-#pragma warning disable CS8600
-#pragma warning disable CS8602
-#pragma warning disable CS8603
-#pragma warning disable CS8604
-#pragma warning disable CS8619
 
 namespace SLAYER_Conquest;
 
@@ -68,14 +45,14 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             }
         }
 
-        return PlayerStatuses[player].ClassType;
+        return PlayerStatuses[player!].ClassType;
     }
     private void InitializePlayerClasses()
     {
         // Initialize each class based on config
         foreach (var classType in Enum.GetValues(typeof(PlayerClassType)))
         {
-            var className = classType.ToString();
+            var className = classType.ToString()!;
 
             // Skip if not in config
             if (!Config.ClassAttributes.ContainsKey(className) || !Config.ClassWeapons.ContainsKey(className))
@@ -108,12 +85,12 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             // Use default class from config
             if (Enum.TryParse(Config.DefaultPlayerClass, out PlayerClassType configClass) && _classConfigs.ContainsKey(configClass))
             {
-                playerStatus.ClassType = configClass;
+                playerStatus = new PlayerStatus { ClassType = configClass };
             }
             else
             {
                 // Fallback to Assault if config value is invalid
-                playerStatus.ClassType = PlayerClassType.Assault;
+                playerStatus = new PlayerStatus { ClassType = PlayerClassType.Assault };
                 Console.WriteLine($"{Localizer["Console.InvalidDefaultPlayerClass", Config.DefaultPlayerClass]}");
             }
             
@@ -147,7 +124,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             player.PlayerPawn!.Value!?.ItemServices?.As<CCSPlayer_ItemServices>().RemoveWeapons(); // Remove all weapons
             // Set health and armor
-            player.PlayerPawn.Value.Health = config.Health;
+            player.PlayerPawn.Value!.Health = config.Health;
             player.PlayerPawn.Value.MaxHealth = config.Health;
             if (config.HasHelmet) player.GiveNamedItem("item_assaultsuit"); // Give helmet 
             player.PlayerPawn.Value.ArmorValue = config.Armor;
@@ -249,14 +226,14 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             ApplyPlayerClass(player, false); // Apply the class immediately
             AddTimer(0.1f, () =>
             {
-                var ent = MatchStatus.PoseEntities[squad].FirstOrDefault(e => e.PlayerName == PlayerStatuses[player].DefaultName);
+                var ent = MatchStatus.PoseEntities[squad!].FirstOrDefault(e => e.PlayerName == PlayerStatuses[player].DefaultName);
                 if (ent != null && ent.PoseEntity != null)
                 {
                     ent.PoseEntity.Remove();
-                    ent.NameTextEntity.Remove();
-                    MatchStatus.PoseEntities[squad].Remove(ent);
+                    ent.NameTextEntity!.Remove();
+                    MatchStatus.PoseEntities[squad!].Remove(ent);
 
-                    CreateMatchEndPlayerPoseEntities(squad, true, player);
+                    CreateMatchEndPlayerPoseEntities(squad!, true, player);
                 }
             });
         }

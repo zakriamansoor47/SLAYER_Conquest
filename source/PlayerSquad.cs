@@ -1,27 +1,6 @@
-using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Timers;
-using CounterStrikeSharp.API.Modules.Cvars;
-using CounterStrikeSharp.API.Modules.Menu;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
-using CounterStrikeSharp.API.Modules.Entities.Constants;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Drawing;
-using Microsoft.Extensions.Logging;
-using System.Runtime.InteropServices;
 
-// Used these to remove compile warnings
-#pragma warning disable CS8600
-#pragma warning disable CS8602
-#pragma warning disable CS8603
-#pragma warning disable CS8604
-#pragma warning disable CS8619
 
 namespace SLAYER_Conquest;
 
@@ -73,7 +52,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     }
                     if (!player.PlayerName.Contains($"[{GetPlayerSquad(player)?.SquadName}]")) // Check if the squad name is not null
                     {
-                        Name = $"[{GetPlayerSquad(player).SquadName}] " + Name; // Prepend the squad name for bots
+                        Name = $"[{GetPlayerSquad(player)?.SquadName}] " + Name; // Prepend the squad name for bots
                     }
                 }
                 if (PlayerStatuses.ContainsKey(player) && PlayerStatuses[player].DefaultName == "") // Check if the default name is already stored
@@ -108,7 +87,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             SetClantag(player, clantag);
         }
     }
-    public PlayerSquad AddPlayerToSquad(CCSPlayerController player, int teamNum)
+    public PlayerSquad? AddPlayerToSquad(CCSPlayerController player, int teamNum)
     {
         // First check if player is already in a squad for this team
         var existingSquad = PlayerSquads.FirstOrDefault(s => s.Members.ContainsKey(player) && s.TeamNum == teamNum);
@@ -185,7 +164,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         }
     }
 
-    public PlayerSquad GetPlayerSquad(CCSPlayerController player)
+    public PlayerSquad? GetPlayerSquad(CCSPlayerController player)
     {
         return PlayerSquads.FirstOrDefault(s => s.Members.ContainsKey(player));
     }
@@ -194,7 +173,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     /// <param name="teamNum">Team number to filter squads (0 = all teams)</param>
     /// <returns>The best squad or null if no squads exist</returns>
-    public PlayerSquad GetBestSquad(int teamNum = 0)
+    public PlayerSquad? GetBestSquad(int teamNum = 0)
     {
         if (PlayerSquads == null || PlayerSquads.Count == 0) return null;
 
@@ -286,8 +265,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         player.PrintToChat($" {Localizer["Squad.InfoHeader", Localizer["Chat.Prefix"]]}");
         player.PrintToChat($" {Localizer["Squad.Name", squad.SquadName, squad.Id, squad.Members.Count]}");
 
-        foreach (var member in squad.Members.Where(p => p.Key != null && p.Key.IsValid && p.Key.Connected == PlayerConnectedState.PlayerConnected))
+        foreach (var member in squad.Members)
         {
+            if (member.Key == null || !member.Key.IsValid || member.Key.Connected != PlayerConnectedState.PlayerConnected) continue;
             string className = _classConfigs[member.Value].Name;
             player.PrintToChat($" {Localizer["Squad.Member", (PlayerStatuses.ContainsKey(member.Key) && !string.IsNullOrEmpty(PlayerStatuses[member.Key].DefaultName) ? PlayerStatuses[member.Key].DefaultName : member.Key?.PlayerName ?? "UNKNOWN"), className]}");
         }

@@ -3,7 +3,6 @@ using CounterStrikeSharp.API.Core;
 
 namespace SLAYER_Conquest;
 
-
 public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     // Track last few used animations to avoid repetition

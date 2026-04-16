@@ -9,6 +9,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 {
     public Dictionary<int, (string, float, RecipientFilter, float)> CenterMessageLines = new Dictionary<int, (string, float, RecipientFilter, float)>();
     private bool _isSorting = false;
+    private bool _centerLinesDirty = true;
+    private readonly List<KeyValuePair<int, (string, float, RecipientFilter, float)>> _sortedCenterLinesCache = new List<KeyValuePair<int, (string, float, RecipientFilter, float)>>();
 
     /// <summary>
     /// Tick function to display the combined center message
@@ -22,25 +24,48 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         if (validPlayers.Count == 0) return;
 
+        List<int>? expiredLines = null;
         foreach (var line in CenterMessageLines)
         {
             // Calculate elapsed time
             float elapsedTime = Server.CurrentTime - line.Value.Item4;
             float remainingTime = line.Value.Item2 - elapsedTime;
-            if (line.Value.Item2 > 0f && remainingTime < 0f) { RemoveCenterMessageLine(line.Key); return; } // Skip expired lines
+            if (line.Value.Item2 > 0f && remainingTime < 0f)
+            {
+                expiredLines ??= new List<int>();
+                expiredLines.Add(line.Key);
+            }
         }
 
-        // Sort lines once
-        var sortedLines = CenterMessageLines.OrderBy(kvp => kvp.Key).ToList();
-
-        var specificLines = sortedLines.Where(line => line.Value.Item3 != null && line.Value.Item3.Count > 0).ToList();
-
-        foreach (var player in validPlayers.Where(p => p != null && p.IsValid))
+        if (expiredLines != null)
         {
-            var playerMessages = new List<string>();
+            foreach (var lineId in expiredLines)
+            {
+                RemoveCenterMessageLine(lineId);
+            }
+
+            if (CenterMessageLines.Count == 0) return;
+        }
+
+        var sortedLines = GetSortedCenterLines();
+        if (sortedLines.Count == 0) return;
+
+        var playerMessages = new List<string>();
+        foreach (var player in validPlayers)
+        {
+            if (player == null || !player.IsValid) continue;
+
+            playerMessages.Clear();
 
             // Add specific messages for this player
-            playerMessages.AddRange(specificLines.Where(line => line.Value.Item3.Contains(player)).Select(line => line.Value.Item1));
+            foreach (var line in sortedLines)
+            {
+                var recipients = line.Value.Item3;
+                if (recipients != null && recipients.Count > 0 && recipients.Contains(player))
+                {
+                    playerMessages.Add(line.Value.Item1);
+                }
+            }
 
             // Send combined message if any exist
             if (playerMessages.Count > 0)
@@ -49,6 +74,21 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 player.PrintToCenterHtml(combinedMessage);
             }
         }
+    }
+
+    private List<KeyValuePair<int, (string, float, RecipientFilter, float)>> GetSortedCenterLines()
+    {
+        if (!_centerLinesDirty) return _sortedCenterLinesCache;
+
+        _sortedCenterLinesCache.Clear();
+        _sortedCenterLinesCache.AddRange(CenterMessageLines.OrderBy(kvp => kvp.Key));
+        _centerLinesDirty = false;
+        return _sortedCenterLinesCache;
+    }
+
+    private void MarkCenterLinesDirty()
+    {
+        _centerLinesDirty = true;
     }
 
     /// <summary>
@@ -75,6 +115,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         //Server.PrintToChatAll($"Adding line: {actualLineId} | {Server.CurrentTime} | {message}");
         // Add the new line using the actual line ID
         CenterMessageLines[actualLineId] = (message, duration, recipients ?? new RecipientFilter(), Server.CurrentTime);
+        MarkCenterLinesDirty();
     }
 
     /// <summary>
@@ -87,6 +128,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Remove the line
         CenterMessageLines.Remove(lineId);
+        MarkCenterLinesDirty();
     }
 
     /// <summary>
@@ -117,6 +159,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // updated line
         CenterMessageLines[lineId] = (newMessage, resetTimer ? duration : remainingTime, recipients ?? CenterMessageLines[lineId].Item3, resetTimer ? Server.CurrentTime : CenterMessageLines[lineId].Item4);
+        MarkCenterLinesDirty();
     }
 
     public void ExtendCenterMessageLine(int lineId, string newMessage, float duration = -1f)
@@ -128,6 +171,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Update the line with new timer and duration
         CenterMessageLines[lineId] = (existingLine.Item1 + newMessage, existingLine.Item2 + duration > 0 ? duration : 0f, existingLine.Item3, duration > 0 ? Server.CurrentTime : existingLine.Item4);
+        MarkCenterLinesDirty();
     }
 
     /// <summary>
@@ -286,6 +330,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Clear the dictionary
         CenterMessageLines.Clear();
+        _sortedCenterLinesCache.Clear();
+        MarkCenterLinesDirty();
     }
 
     /// <summary>
@@ -321,6 +367,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Update the line with new timer and duration
         CenterMessageLines[lineId] = (existingLine.Item1, existingLine.Item2 + additionalDuration, existingLine.Item3, existingLine.Item4);
+        MarkCenterLinesDirty();
     }
 
     /// <summary>
@@ -335,6 +382,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         // Update with no timer (permanent)
         CenterMessageLines[lineId] = (existingLine.Item1, 0f, existingLine.Item3, existingLine.Item4);
+        MarkCenterLinesDirty();
     }
     
     public void AddRecipientToLine(int lineId, CCSPlayerController player)
@@ -348,6 +396,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             recipients.Add(player);
             CenterMessageLines[lineId] = (existingLine.Item1, existingLine.Item2, recipients, existingLine.Item4);
+            MarkCenterLinesDirty();
         }
     }
 }

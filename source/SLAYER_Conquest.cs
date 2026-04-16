@@ -37,8 +37,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     public Vector DeployCameraPosition = new Vector(0, 0, 3000); // Default deploy camera position
     public (Vector, QAngle) MatchEndCameraPosition = (new Vector(0, 0, 0), new QAngle(0, 0, 0)); // Default match end camera position
 
-    public FileHandling? fileHandler;
-    public Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?> ThirdPerson = new Dictionary<CCSPlayerController, CPhysicsPropMultiplayer?>();
+    public FileHandling fileHandler = null!;
     public Dictionary<CCSPlayerController, (Vector, QAngle)> DeadPlayersPosition = new Dictionary<CCSPlayerController, (Vector, QAngle)>();
     public Dictionary<CCSPlayerController, (Timer, float)> DeadPlayersTimer = new Dictionary<CCSPlayerController, (Timer, float)>();
     public Dictionary<CCSPlayerController, (Timer, float)> PlayersRedeployTimer = new Dictionary<CCSPlayerController, (Timer, float)>();
@@ -47,12 +46,19 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     public Timer? UpdatePlayerStatesTimer = null;
     public int TickCounter = 0;
     public List<CCSPlayerController> activePlayers = new List<CCSPlayerController>();
+    private readonly HashSet<CDynamicProp> _checkTransmitAllowedGlows = new HashSet<CDynamicProp>();
     private readonly MemoryFunctionVoid<CCSPlayerPawn, CBasePlayerWeapon> CCSPlayer_HandleDropWeapon = new(GameData.GetSignature("CCSPlayerController_HandleCommandDrop"));
     public override void Load(bool hotReload)
     {
         AddTimer(1.0f, () => CRayTrace.Init());
         activePlayers.Clear();
         CCSPlayer_HandleDropWeapon.Hook(WeaponDrop_Hook, HookMode.Pre);
+
+        var speedButton = (PlayerButtons)ParseButtonByName("Speed");
+        var useButton = (PlayerButtons)ParseButtonByName("Use");
+        var duckButton = (PlayerButtons)ParseButtonByName("Duck");
+        var forwardButtonValue = ParseButtonByName("Forward");
+        var forwardButton = (PlayerButtons)forwardButtonValue;
 
         ResetMatchStatusStuff();
         ClearStuff(); // Clear all previous data
@@ -107,9 +113,14 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         });
         RegisterListener<Listeners.OnTick>(() =>
         {
-            if (TickCounter >= 3)
+            if (TickCounter >= 10) // Update active players every 10 ticks (0.5 seconds)
             {
-                activePlayers = Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1).ToList();
+                activePlayers.Clear();
+                foreach (var p in Utilities.GetPlayers())
+                {
+                    if (p == null || !p.IsValid || p.Connected != PlayerConnectedState.PlayerConnected || p.IsHLTV || p.TeamNum <= 1) continue;
+                    activePlayers.Add(p);
+                }
                 TickCounter = 0;
             }
             // Print center message on tick, if any
@@ -120,91 +131,65 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             {
                 // Check for player revives
                 CheckReviveOnTick();
-                // Update third-person cameras for players
-                if (Config.AllowThirdPerson && ThirdPerson.Count > 0)
-                {
-                    foreach (var player in ThirdPerson.ToList())
-                    {
-                        if (player.Key == null || !player.Key.IsValid || player.Key.Connected != PlayerConnectedState.PlayerConnected || player.Key.IsBot || player.Key.IsHLTV || player.Key.TeamNum < 2)
-                        {
-                            ThirdPerson.Remove(player.Key!);
-                            player.Key!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
-                            Utilities.SetStateChanged(player.Key.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-                            continue;
-                        }
-                        else
-                        {
-                            UpdateCameraSmooth(player.Value!, player.Key);
-                        }
-                    }
-                }
 
                 // Handle player inputs for special actions
                 if (activePlayers.Count <= 0) return;
                 foreach (var player in activePlayers)
                 {
-                    if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || !PlayerStatuses.ContainsKey(player)) continue;
+                    if (player == null || !player.IsValid || player.TeamNum < 2 || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE || !PlayerStatuses.TryGetValue(player, out var playerStatus)) continue;
                     
-                    if (PlayerStatuses[player].PlayerCallInAttackCamera != null && PlayerStatuses[player].PlayerCallInAttackCamera!.IsValid)
+                    if (playerStatus.PlayerCallInAttackCamera != null && playerStatus.PlayerCallInAttackCamera.IsValid)
                     {
-                        PlayerStatuses[player].PlayerCallInAttackCamera!.Teleport(DeployCameraPosition, player.PlayerPawn.Value!.V_angle); // Teleport Camera prop to the deploy camera position
+                        playerStatus.PlayerCallInAttackCamera.Teleport(DeployCameraPosition, player.PlayerPawn.Value!.V_angle); // Teleport Camera prop to the deploy camera position
                         continue; // Skip the rest of the loop if the player is using the call-in attack camera
                     }
-                    if (Config.AllowThirdPerson && player.PlayerPawn.Value!.MovementServices!.ButtonDoublePressed == ParseButtonByName("Inspect") && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and attack2 buttons to switch to firstPerson
-                    {
-                        if (ThirdPerson.ContainsKey(player)) // If the player is in third-person mode, switch to first-person
-                        {
-                            ThirdPerson.Remove(player); // Remove the player from third-person dictionary with a slight delay
-                            player.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue; // Reset the camera view entity
-                            Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.FirstPersonEnabled"]}");
-                        }
-                        else if (!ThirdPerson.ContainsKey(player)) // If the player is not in third-person mode, switch to third-person
-                        {
-                            ThirdPerson[player] = SetThirdPerson(player); // Set the player to third-person mode
-                            player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.ThirdPersonEnabled"]}");
-                        }
-                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
-                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
-                    }
-                    if (player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Use")) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and use buttons to use special item
+                    if (player.Buttons.HasFlag(speedButton) && player.Buttons.HasFlag(useButton) && !playerStatus.PlayerPressedKey) // player pressing speed and use buttons to use special item
                     {
                         var playerClass = GetPlayerClassType(player);
                         if (playerClass == PlayerClassType.Assault) TryUseSpecialItem(player, "Claymore");
                         else if (playerClass == PlayerClassType.Engineer) TryUseSpecialItem(player, "AmmoBox");
                         else if (playerClass == PlayerClassType.Medic) TryUseSpecialItem(player, "Medkit");
                         else if (playerClass == PlayerClassType.Recon) TryUseSpecialItem(player, "ReconRadio");
-                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
-                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                        AddTimer(0.25f, () =>
+                        {
+                            if (player != null && player.IsValid && PlayerStatuses.TryGetValue(player, out var status)) status.PlayerPressedKey = false;
+                        }); // Reset the player pressed key after 0.25 seconds
+                        playerStatus.PlayerPressedKey = true; // Set the player pressed key to true
                     }
-                    else if (player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Use")) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and use buttons to use special item
+                    else if (player.Buttons.HasFlag(useButton) && !playerStatus.PlayerPressedKey) // player pressing speed and use buttons to use special item
                     {
                         var playerClass = GetPlayerClassType(player);
                         if (playerClass == PlayerClassType.Engineer) TryUseSpecialItem(player, "AmmoPouch");
                         else if (playerClass == PlayerClassType.Medic) TryUseSpecialItem(player, "MedicPouch");
-                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
-                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                        AddTimer(0.25f, () =>
+                        {
+                            if (player != null && player.IsValid && PlayerStatuses.TryGetValue(player, out var status)) status.PlayerPressedKey = false;
+                        }); // Reset the player pressed key after 0.25 seconds
+                        playerStatus.PlayerPressedKey = true; // Set the player pressed key to true
                     }
-                    else if (player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) && !PlayerStatuses[player].PlayerPressedKey) // player pressing speed and duck buttons to open call in attacks menu
+                    else if (player.Buttons.HasFlag(speedButton) && player.Buttons.HasFlag(duckButton) && !playerStatus.PlayerPressedKey) // player pressing speed and duck buttons to open call in attacks menu
                     {
                         OpenCallInAttackMenu(player);
-                        AddTimer(0.25f, () => PlayerStatuses[player].PlayerPressedKey = false); // Reset the player pressed key after 0.5 seconds
-                        PlayerStatuses[player].PlayerPressedKey = true; // Set the player pressed key to true
+                        AddTimer(0.25f, () =>
+                        {
+                            if (player != null && player.IsValid && PlayerStatuses.TryGetValue(player, out var status)) status.PlayerPressedKey = false;
+                        }); // Reset the player pressed key after 0.25 seconds
+                        playerStatus.PlayerPressedKey = true; // Set the player pressed key to true
                     }
                     // Handle player sprinting
                     Vector movement = player.PlayerPawn.Value!.MovementServices!.LastMovementImpulses;
-                    if (player.PlayerPawn.Value!.MovementServices!.ButtonDoublePressed == ParseButtonByName("Forward") && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) && !player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) && movement.X == 1 && !PlayerStatuses[player].IsSprinting) // player double pressed speed button and also moving forward
+                    if (player.PlayerPawn.Value!.MovementServices!.ButtonDoublePressed == forwardButtonValue && !player.Buttons.HasFlag(speedButton) && !player.Buttons.HasFlag(duckButton) && movement.X == 1 && !playerStatus.IsSprinting) // player double pressed speed button and also moving forward
                     {
 
                         player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.Sprinting"]}");
                         player.PlayerPawn.Value!.VelocityModifier += Config.PlayerSprintSpeedBoost;// Increase speed by 150%
-                        PlayerStatuses[player].IsSprinting = true; // Set the player is sprinting to true
+                        playerStatus.IsSprinting = true; // Set the player is sprinting to true
                     }
-                    else if ((!player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Forward")) || player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Speed")) || player.Buttons.HasFlag((PlayerButtons)ParseButtonByName("Duck")) || movement.X == -1 || (movement.X != 1 && movement.Y != 0)) && PlayerStatuses[player].IsSprinting) // player is not pressing speed button or moving backward or moving sideways
+                    else if ((!player.Buttons.HasFlag(forwardButton) || player.Buttons.HasFlag(speedButton) || player.Buttons.HasFlag(duckButton) || movement.X == -1 || (movement.X != 1 && movement.Y != 0)) && playerStatus.IsSprinting) // player is not pressing speed button or moving backward or moving sideways
                     {
                         var playerClass = GetPlayerClassType(player);
                         var config = _classConfigs[playerClass];
-                        PlayerStatuses[player].IsSprinting = false; // Reset the player is sprinting if the player is not pressing the speed button
+                        playerStatus.IsSprinting = false; // Reset the player is sprinting if the player is not pressing the speed button
                         if (player.PlayerPawn.Value!.VelocityModifier > config.Speed) player.PlayerPawn.Value!.VelocityModifier = config.Speed; // Reset speed back to normal if the player is not pressing the speed button
                     }
                 }
@@ -221,25 +206,30 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
                 if (DroppedAmmoPouches != null && DroppedAmmoPouches.Count > 0)  // If there are dropped ammo pouches, check if they should be transmitted to the player
                 {
-                    foreach (var ammoPouch in DroppedAmmoPouches.Where(a => a != null && a.IsValid && a.DeployTeam != player.TeamNum))
+                    foreach (var ammoPouch in DroppedAmmoPouches)
                     {
+                        if (ammoPouch == null || !ammoPouch.IsValid || ammoPouch.DeployTeam == player.TeamNum) continue;
+
                         // If the ammo pouch is not for this player's team, hide it from them
                         if (ammoPouch.Entity != null && ammoPouch.Entity.IsValid) info.TransmitEntities.Remove(ammoPouch.Entity);
                         // Also hide the beacon beams if any
                         if (ammoPouch.BeaconBeams != null)
                         {
-                            foreach (var beam in ammoPouch.BeaconBeams.Where(b => b != null && b.IsValid))
+                            foreach (var beam in ammoPouch.BeaconBeams)
                             {
+                                if (beam == null || !beam.IsValid) continue;
                                 info.TransmitEntities.Remove(beam);
                             }
                         }
                     }
                 }
                 // Hide all beams except for the beam owner
-                foreach (var playerStatus in PlayerStatuses.Where(kvp => kvp.Key != null && kvp.Key.IsValid && kvp.Key != player && kvp.Value.CallInAttackBeams != null && kvp.Value.CallInAttackBeams.Count > 0))
+                foreach (var playerStatus in PlayerStatuses)
                 {
-                    foreach (var beam in playerStatus.Value.CallInAttackBeams.Where(b => b != null && b.IsValid))
+                    if (playerStatus.Key == null || !playerStatus.Key.IsValid || playerStatus.Key == player || playerStatus.Value.CallInAttackBeams == null || playerStatus.Value.CallInAttackBeams.Count == 0) continue;
+                    foreach (var beam in playerStatus.Value.CallInAttackBeams)
                     {
+                        if (beam == null || !beam.IsValid) continue;
                         info.TransmitEntities.Remove(beam);
                     }
                 }
@@ -247,19 +237,25 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 if (MatchStatus.Status == MatchStatusType.Starting || MatchStatus.Status == MatchStatusType.CounterTerroristWin || MatchStatus.Status == MatchStatusType.TerroristWin)
                 {
                     // Hide all players from this player, except themselves cause that breaks stuff
-                    foreach (var p in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1 && p != player))
+                    foreach (var p in activePlayers)
                     {
-                        info.TransmitEntities.Remove(p.PlayerPawn.Value!.Index);
+                        if (p == null || !p.IsValid || p == player || p.IsHLTV || p.TeamNum <= 1 || p.Connected != PlayerConnectedState.PlayerConnected || p.PlayerPawn.Value == null) continue;
+                        info.TransmitEntities.Remove(p.PlayerPawn.Value.Index);
                     }
 
-                    if (MatchStatus.PlayerLookingAtSquadPoseEntities.ContainsKey(player))
+                    if (MatchStatus.PlayerLookingAtSquadPoseEntities.TryGetValue(player, out var playerLookingData))
                     {
-                        var squad = MatchStatus.PlayerLookingAtSquadPoseEntities[player].Item1;
+                        var squad = playerLookingData.Item1;
                         // Hide all pose entities from this player except the ones from their own squad
-                        foreach (var otherSquad in MatchStatus.PoseEntities.Keys.Where(s => s != null && s != squad))
+                        foreach (var poseEntry in MatchStatus.PoseEntities)
                         {
-                            foreach (var poseEntity in MatchStatus.PoseEntities[otherSquad].Where(p => p != null))
+                            var otherSquad = poseEntry.Key;
+                            if (otherSquad == null || otherSquad == squad) continue;
+
+                            foreach (var poseEntity in poseEntry.Value)
                             {
+                                if (poseEntity == null) continue;
+
                                 if (poseEntity.PoseEntity != null && poseEntity.PoseEntity.IsValid)
                                 {
                                     info.TransmitEntities.Remove(poseEntity.PoseEntity); // Remove the pose entity from transmission
@@ -275,7 +271,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 }
 
                 // If this player has no seeable glows, hide all glows from them
-                if (!PlayerSeeableGlow.ContainsKey(player))
+                if (!PlayerSeeableGlow.TryGetValue(player, out var playerGlowGroups))
                 {
                     // Hide all glows from this player
                     foreach (var otherPlayerGlows in PlayerSeeableGlow.Values)
@@ -299,8 +295,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 }
 
                 // Get this player's allowed glows
-                var playerAllowedGlows = new HashSet<CDynamicProp>();
-                foreach (var glowGroup in PlayerSeeableGlow[player])
+                _checkTransmitAllowedGlows.Clear();
+                foreach (var glowGroup in playerGlowGroups)
                 {
                     if (glowGroup?.Glows == null || glowGroup.Glows.Count == 0) continue;
 
@@ -308,7 +304,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     {
                         if (glow != null && glow.IsValid)
                         {
-                            playerAllowedGlows.Add(glow);
+                            _checkTransmitAllowedGlows.Add(glow);
                         }
                     }
                 }
@@ -324,7 +320,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
                         foreach (var glow in glowGroup.Glows)
                         {
-                            if (glow != null && glow.IsValid && !playerAllowedGlows.Contains(glow))
+                            if (glow != null && glow.IsValid && !_checkTransmitAllowedGlows.Contains(glow))
                             {
                                 info.TransmitEntities.Remove(glow);
                             }
@@ -350,8 +346,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             StartMatch(); // Start the match immediately if not already starting
 
-            foreach (var flag in FlagPositions.Where(f => f.Key != null && f.Value != null))
+            foreach (var flag in FlagPositions)
             {
+                if (flag.Key == null || flag.Value == null) continue;
                 // Create the flag entity
                 CreateFlag(flag.Key, flag.Value);
             }
@@ -361,8 +358,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 UpdateFlagsStatus(); // Update all flags status
             }, TimerFlags.REPEAT);
 
-            foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+            foreach (var player in Utilities.GetPlayers())
             {
+                if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1) continue;
                 if (player.Pawn.Value != null && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
                 {
                     AddDeployPosition(player, player.Pawn.Value.AbsOrigin!, player.Pawn.Value.AbsRotation!); // Add default deploy positions for players
@@ -374,18 +372,23 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             {
                 UpdateSpecialItemsRegeneration(); // Regenerate special items if applicable
                 UpdateReviveStatus(); // Update revive status every second
-                foreach (var player in activePlayers.Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected && !p.IsHLTV && p.TeamNum > 1))
+                foreach (var player in activePlayers)
                 {
-                    if (PlayerStatuses.ContainsKey(player))
+                    if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected || player.IsHLTV || player.TeamNum <= 1 || player.Pawn.Value == null) continue;
+
+                    if (!PlayerStatuses.TryGetValue(player, out var playerStatus))
                     {
-                        PlayerStatuses[player].CapturingFlag = IsPlayerInAnyFlagSquare(player);
-                        if (PlayerStatuses[player].Status == PlayerStatusType.Combat && player.Pawn.Value != null && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
-                        {
-                            if (Server.CurrentTime - PlayerStatuses[player].LastCombatTime > Config.CombatTime) // If the player has not been in combat for more than 5 seconds, set their status to alive
-                                PlayerStatuses[player].Status = PlayerStatusType.Alive;
-                        }
+                        playerStatus = new PlayerStatus();
+                        PlayerStatuses[player] = playerStatus;
                     }
-                    else PlayerStatuses[player] = new PlayerStatus();
+
+                    playerStatus.CapturingFlag = IsPlayerInAnyFlagSquare(player);
+                    if (playerStatus.Status == PlayerStatusType.Combat && player.Pawn.Value.LifeState == (byte)LifeState_t.LIFE_ALIVE)
+                    {
+                        if (Server.CurrentTime - playerStatus.LastCombatTime > Config.CombatTime) // If the player has not been in combat for more than 5 seconds, set their status to alive
+                            playerStatus.Status = PlayerStatusType.Alive;
+                    }
+
                     UpdatePlayerDeployPositions(player);
                     SetGlowOnMedic(player); // Set glow on the medic to indicate the revive request
                     SetGlowOnSquadMembers(player); // Set glow on squad members if enabled
@@ -393,13 +396,15 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     TryToUnstuckPlayer(player); // Try to unstuck the player if they are stuck
                 }
                 // Remove dropped weapons after a certain time
-                foreach (var weapon in Utilities.FindAllEntitiesByDesignerName<CCSWeaponBaseGun>("weapon_").Where(w => w != null && w.IsValid))
+                foreach (var weapon in Utilities.FindAllEntitiesByDesignerName<CCSWeaponBaseGun>("weapon_"))
                 {
+                    if (weapon == null || !weapon.IsValid) continue;
+
                     if (weapon.OwnerEntity.Value == null)
                     {
-                        if (RemoveDropWeaponTimer.ContainsKey(weapon))
+                        if (RemoveDropWeaponTimer.TryGetValue(weapon, out var removeDelay))
                         {
-                            if (RemoveDropWeaponTimer[weapon] > 0) RemoveDropWeaponTimer[weapon] -= 0.5f; // Decrease the timer
+                            if (removeDelay > 0) RemoveDropWeaponTimer[weapon] = removeDelay - 0.5f; // Decrease the timer
                             else // If the timer is 0, remove the weapon
                             {
                                 RemoveDropWeaponTimer.Remove(weapon); // Remove the weapon from the list
@@ -423,8 +428,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             ResetAllPlayersSpecialItems();
             AddTimer(0.5f, () =>
             {
-                foreach (var entity in Utilities.GetAllEntities().Where(e => e != null && e.IsValid && e.DesignerName != null && e.DesignerName == "env_gradient_fog" || e!.DesignerName == "env_cubemap_fog"))
+                foreach (var entity in Utilities.GetAllEntities())
                 {
+                    if (entity == null || !entity.IsValid || entity.DesignerName == null) continue;
+                    if (entity.DesignerName != "env_gradient_fog" && entity.DesignerName != "env_cubemap_fog") continue;
                     entity.Remove();
                 }
             });
@@ -480,12 +487,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             {
                 DeadPlayersPosition.Remove(player); // Remove from dead players list after respawn
             }
-            if (ThirdPerson.ContainsKey(player)) // If the player is already in third-person mode, reset their camera to first-person
-            {
-                ThirdPerson.Remove(player);
-                player!.PlayerPawn!.Value!.CameraServices!.ViewEntity.Raw = uint.MaxValue;
-                Utilities.SetStateChanged(player.PlayerPawn!.Value!, "CBasePlayerPawn", "m_pCameraServices");
-            }
             // Reset special items on spawn
             ResetPlayerSpecialItemsOnSpawn(player, true, true, false);
             InitializePlayerSpecialItem(player, PlayerStatuses[player].ClassType.ToString(), false); // Initialize the player's special item based on their class
@@ -526,7 +527,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                         MatchStatus.PlayersMatchEndCamera.Teleport(MatchEndCameraPosition.Item1, MatchEndCameraPosition.Item2); // Teleport Camera prop to the desired position
                     }
 
-                    var playerSquad = GetPlayerSquad(player);
+                    var playerSquad = GetPlayerSquad(player)!;
                     CreateMatchEndPlayerPoseEntities(playerSquad, true, player); // Create the match end player pose entities for this player
                     MatchStatus.PlayerLookingAtSquadPoseEntities[player] = (playerSquad, null); // Set the player's looking at squad pose entity
 
@@ -535,17 +536,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                     player.PrintToChat($"{Localizer["Chat.Prefix"]} {Localizer["Chat.MatchStartingIn", secondsLeft]}");
                 });
             }
-
-            // Set ThirdPerson mode if enabled and player is not a bot
-            if (Config.AllowThirdPerson && MatchStatus.Status == MatchStatusType.Ongoing) 
-            {
-                AddTimer(0.3f, () => 
-                {
-                    if (player == null || !player.IsValid || player.Connected != PlayerConnectedState.PlayerConnected) return;
-                    if (!player.IsBot && ThirdPerson.ContainsKey(player)) ThirdPerson[player] = SetThirdPerson(player);
-                });
-            }
-
 
             return HookResult.Continue;
         });
@@ -734,8 +724,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.IsValid && p.Connected == PlayerConnectedState.PlayerConnected))
         {
-            // Reset the player's camera if they are in third-person mode
-            RemoveThirdPerson(player);
             SetPlayerScale(player, 1f); // Reset player scale to normal
             CleanPlayerStuff(player);
         }
@@ -752,14 +740,11 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     {
         ResetAllPlayersSpecialItems();
         AvailableRevives.Clear();
-        ThirdPerson.Clear();
         Flagpoles?.Clear();
         FlagPositions.Clear();
         CenterMessageLines.Clear();
         DeadPlayersPosition.Clear();
         DeadPlayersTimer.Clear();
-        PlayerWeaponZoomed.Clear();
-        PlayerWeaponZoomedCount.Clear();
         PlayerSquads.Clear();
         PlayerDeployPositions.Clear();
         PlayerSeeableGlow.Clear();
@@ -789,12 +774,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // Clean up all player-related dictionaries
         if (PlayerStatuses.ContainsKey(player))
             PlayerStatuses.Remove(player);
-
-        if (PlayerWeaponZoomed.ContainsKey(player))
-            PlayerWeaponZoomed.Remove(player);
-
-        if (PlayerWeaponZoomedCount.ContainsKey(player))
-            PlayerWeaponZoomedCount.Remove(player);
 
         if (DeadPlayersPosition.ContainsKey(player))
             DeadPlayersPosition.Remove(player);

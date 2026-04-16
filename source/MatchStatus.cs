@@ -170,7 +170,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             else LosersrecipientFilter.Add(player);
 
             RemoveAllGlowOfPlayer(player); // Remove all glow effects from the player
-            RemoveThirdPerson(player); // Remove third person if any
             if (PlayersRedeployTimer != null && PlayersRedeployTimer.ContainsKey(player)) // If the player has a redeploy timer, remove it
             {
                 if (PlayersRedeployTimer[player].Item1 != null) PlayersRedeployTimer[player].Item1?.Kill();
@@ -205,7 +204,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         ClearAllCenterMessageLines(); // Clear any existing center message lines
         var winnerColor = MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
         UpdateCenterMessageLine(1, Localizer["CenterHtml.WinnerAnnouncement", winnerColor, Winner], recipientFilter, -1, true);
-        MatchStatus.BestSquad = GetBestSquad();
+        MatchStatus.BestSquad = GetBestSquad()!; // Get the best squad of the match to show in the match end screen 
         // Calculate text position in front of camera
         var pos = CalculateTextPosition();
         var color = MatchStatus.BestSquad.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
