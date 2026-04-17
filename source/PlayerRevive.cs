@@ -206,7 +206,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         RemovePlayerReviveEntry(player);
 
         player.Respawn();    // Respawn him after he get revivied
-        AddTimer(0.05f, () => // Delay timer which will teleport the player to their death position
+        AddTimer(0.15f, () => // Delay timer which will teleport the player to their death position
         {
             if (player != null && player.IsValid && player.PlayerPawn.Value!.LifeState == (byte)LifeState_t.LIFE_ALIVE)
             {

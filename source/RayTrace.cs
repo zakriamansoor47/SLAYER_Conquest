@@ -507,4 +507,20 @@ public partial class SLAYER_Conquest
 			return success;
 		}
 	}
+
+	private static Vector GetForwardVector(QAngle angles)
+    {
+        float pitch = angles.X * (float)Math.PI / 180f;
+        float yaw = angles.Y * (float)Math.PI / 180f;
+        float cp = (float)Math.Cos(pitch);
+        return new Vector(cp * (float)Math.Cos(yaw), cp * (float)Math.Sin(yaw), (float)-Math.Sin(pitch));
+    }
+
+    private Vector GetEyePosition(CCSPlayerController player)
+    {
+        var pawn = player.PlayerPawn.Value;
+        if (pawn == null) return Vector.Zero;
+
+        return pawn.AbsOrigin! + new Vector(0, 0, pawn.ViewOffset.Z);
+    }
 }

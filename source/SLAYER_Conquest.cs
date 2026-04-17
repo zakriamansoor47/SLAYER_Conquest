@@ -629,9 +629,17 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
                 //var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
                 var KillSymbol = @event.Headshot == true ? "<img src='s2r://panorama/images/icons/bf_headshot.vsvg' />" : "<img src='s2r://panorama/images/icons/bf_kill.vsvg' />";
-                if (!CenterMessageLines.ContainsKey(4)) UpdateCenterMessageLine(4, $"{KillSymbol}", new RecipientFilter { attacker }, Config.ShowKillInfoTime);
-                else ExtendCenterMessageLine(4, $" {KillSymbol}", Config.ShowKillInfoTime);
-                UpdateCenterMessageLine(5, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(@event.Weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                // Use attacker-specific line IDs so kill info cannot collide with shared/global center lines.
+                int attackerSlot = Math.Max(attacker.Slot, 0);
+                int killIconLineId = 1000 + attackerSlot;
+                int killInfoLineId = 1100 + attackerSlot;
+
+                if (!CenterMessageLines.ContainsKey(killIconLineId))
+                    UpdateCenterMessageLine(killIconLineId, KillSymbol, new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                else
+                    ExtendCenterMessageLine(killIconLineId, $" {KillSymbol}", Config.ShowKillInfoTime);
+
+                UpdateCenterMessageLine(killInfoLineId, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(@event.Weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
             }
 
             // Play kill sound to the attacker

@@ -169,7 +169,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         }
 
         player.Respawn(); // Respawn the player
-        player.PlayerPawn.Value.Teleport(spawnPosition, null, new Vector(0, 0 , 50)); // Teleport the player to the deploy position
+        AddTimer(0.15f, () => player.PlayerPawn.Value.Teleport(spawnPosition, null, new Vector(0, 0 , 50))); // Teleport the player to the deploy position
         
         return true;
     }

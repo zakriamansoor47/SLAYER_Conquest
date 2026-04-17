@@ -526,7 +526,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
             classMenu.AddOption(classDisplay, (p, option) =>
             {
-                if (parentMenu == null) OpenPlayerClassSubMenu(p, classType, null);
+                if (parentMenu == null) OpenPlayerClassSubMenu(p, classType, classMenu);
                 else
                 {
                     SelectPlayerClass(p, classType);
@@ -553,8 +553,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         classSubMenu.AddOption($"<font color='lime'>SELECT THIS CLASS</font>", (p2, opt2) =>
         {
             SelectPlayerClass(player, classType);
-            MenuManager!.CloseMenu(player); // Close the class selection menu
-            OpenPlayerClassMenu(player); // Reopen the parent menu
+            if (parentMenu != null) MenuManager!.OpenMainMenu(player, parentMenu); // Reopen the parent menu after selection
+            else MenuManager!.CloseMenu(player); // Close the menu if there is no parent
         });
 
         // Add option to print full class details
