@@ -39,7 +39,6 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 - **Guided Missile**: Precision long-range strike (18,000 points)
 
 ### 🎮 Advanced Mechanics
-- **Third-Person Mode**: Toggle with double-tap Inspect key
 - **Sprint System**: Double-tap W to sprint with speed boost
 - **Match End Cinematics**: Best squad showcase with victory/defeat poses
 - **Point System**: Earn points for kills, assists, revives, and objectives
