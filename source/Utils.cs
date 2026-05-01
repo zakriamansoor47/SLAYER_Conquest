@@ -406,8 +406,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             return null;
 
         model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
-        if (ct) model.SetModel("characters/models/ctm_fbi/ctm_fbi_variantf.vmdl");
-        else model.SetModel("characters/models/tm_professional/tm_professional_varf4.vmdl");
+        if (ct) model.SetModel("agents/models/ctm_fbi/ctm_fbi_variantf.vmdl");
+        else model.SetModel("agents/models/tm_professional/tm_professional_varf4.vmdl");
         model.DispatchSpawn();
         model.UseAnimGraph = false;
         model.AcceptInput("SetAnimation", value: "tools_preview");
@@ -425,7 +425,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         CDynamicProp[] models = new CDynamicProp[2];
         model.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= unchecked((uint)~(1 << 2));
         if(!string.IsNullOrWhiteSpace(modelpath))model.SetModel(modelpath);
-        else model.SetModel("characters/models/tm_professional/tm_professional_varf4.vmdl");
+        else model.SetModel("agents/models/tm_professional/tm_professional_varf4.vmdl");
         model.UseAnimGraph = false;
         if(HaveCollision)model.Collision.SolidType = SolidType_t.SOLID_VPHYSICS; // set collision type
         if(TakesDamage)
@@ -444,8 +444,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             {
                 clone.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= unchecked((uint)~(1 << 2));
                 clone.SetModel(animationModelPath); // set custom animation model
-                clone.UseAnimGraph = false;
-                clone.IdleAnim = animation; // play animation in loop
                 if (HaveCollision) clone.Collision.SolidType = SolidType_t.SOLID_VPHYSICS; // set collision type for clone
                 if (TakesDamage)
                 {
@@ -463,7 +461,10 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 clone.Render = Color.FromArgb(0, 255, 255, 255);
                 Utilities.SetStateChanged(clone, "CBaseModelEntity", "m_clrRender");
                 model.AcceptInput("FollowEntity", clone, clone, "!activator"); // main entity follow clone
+                clone.UseAnimGraph = false;
+                clone.IdleAnim = "tools_preview"; // first frame of the animation to avoid T-pose
                 clone.IdleAnim = animation; // play animation
+                clone.IdleAnimLoopMode = PlayAnimationsInLoop ? AnimLoopMode_t.ANIM_LOOP_MODE_LOOPING : AnimLoopMode_t.ANIM_LOOP_MODE_NOT_LOOPING;
                 clone.DispatchSpawn();
                 clone.Teleport(Position, Rotation, Vector.Zero);
                 models[1] = clone;
@@ -471,9 +472,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         }
         else
         {
+            model.IdleAnim = "tools_preview"; // first frame of the animation to avoid T-pose
             model.IdleAnim = animation; // play animation
             model.IdleAnimLoopMode = PlayAnimationsInLoop ? AnimLoopMode_t.ANIM_LOOP_MODE_LOOPING : AnimLoopMode_t.ANIM_LOOP_MODE_NOT_LOOPING; // play animation in loop
-
         }
         HookSingleEntityOutput(model, "OnAnimationDone", HookOnAnimationDone);
         model.DispatchSpawn();
@@ -1090,6 +1091,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             }
         }
     }
+    private static readonly int _collisionRulesChangedOffset = GameData.GetOffset("CBaseEntity_CollisionRulesChanged");
     public void SetEntityCollisionGroup(CBaseEntity entity, CollisionGroup group)
     {
         if (entity.Collision is null)
@@ -1098,8 +1100,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         entity.Collision.CollisionGroup = (byte)group;
         entity.Collision.CollisionAttribute.CollisionGroup = (byte)group;
 
-        int vtableIndex = GameData.GetOffset("CollisionRulesChanged");
-        var collisionRulesChanged = new VirtualFunctionVoid<nint>(entity.Handle, vtableIndex);
+        var collisionRulesChanged = new VirtualFunctionVoid<nint>(entity.Handle, _collisionRulesChangedOffset);
         collisionRulesChanged.Invoke(entity.Handle);
 
         Utilities.SetStateChanged(entity, "CCollisionProperty", "m_collisionAttribute");

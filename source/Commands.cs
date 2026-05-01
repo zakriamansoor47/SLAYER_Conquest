@@ -20,20 +20,23 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         CTFSettingsMenu(player);
     }
-    /*[ConsoleCommand("test", "Test command")]
+    [ConsoleCommand("test", "Test command")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void CreateEntityCMD(CCSPlayerController? player, CommandInfo command)
     {
         if (player == null || !player.IsValid || player.TeamNum < 2 || player.PlayerPawn.Value!.LifeState != (byte)LifeState_t.LIFE_ALIVE) return;
 
-        CreateGuidedMissile(player, Config.CallInAttacks[3], GetPlayerAimPosition(player) ?? CreateNewVector(player.PlayerPawn.Value.AbsOrigin!));
+        //CreateGuidedMissile(player, Config.CallInAttacks[3], GetPlayerAimPosition(player) ?? CreateNewVector(player.PlayerPawn.Value.AbsOrigin!));
         TraceByEyePosition(player, new TraceOptions(InteractionLayers.MASK_SHOT, InteractionLayers.MASK_SHOT), out var trace);
         if (trace.DidHit)
         {
+            player.PrintToChat($"{Localizer["Chat.Prefix"]} Hit at {trace.HitPoint} | {trace.SurfaceProps.Name.Value}");
             DrawLaserBetween(ConvertVector3ToVector(trace.StartPos), ConvertVector3ToVector(trace.HitPoint), Color.Green, 5f, 0.2f);
         }
+
+
     }
-    [ConsoleCommand("teleport", "Teleport the player to a specific location")]
+    /*[ConsoleCommand("teleport", "Teleport the player to a specific location")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void TeleportPlayerCMD(CCSPlayerController? player, CommandInfo command)
     {

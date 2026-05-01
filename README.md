@@ -47,7 +47,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 
 - **CounterStrikeSharp**: Latest version
 - **[T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)**: For menu functionality
-- **[RayTrace v1.0.7](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases/tag/v1.0.7)**: For raytracing functionality
+- **[RayTrace v1.0.13](https://github.com/zakriamansoor47/Ray-Trace)**: For raytracing functionality
 - **[Custom Models & Particles](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)**: Workshop collection with required assets
 - **[SLAYER_SpawnDuplicator](https://github.com/zakriamansoor47/SLAYER_SpawnDuplicator)**: (Optional) To create extra spawn points for players (like spawning 64 players on a map with only 16 spawn points)
 
@@ -56,7 +56,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 1. Install CounterStrikeSharp on your server
 2. Install required dependencies:
    - Download and install [T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)
-   - Download and install [RayTrace v1.0.7](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases/tag/v1.0.7)
+   - Download and install [RayTrace v1.0.13](https://github.com/zakriamansoor47/Ray-Trace)
 3. Subscribe to the [Required Assets Workshop Collection](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
 4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_Conquest/`
 5. Configure the plugin using the generated config file

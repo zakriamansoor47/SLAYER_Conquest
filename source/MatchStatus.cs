@@ -427,7 +427,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             var modelname = member.PlayerPawn.Value!.CBodyComponent!.SceneNode!.GetSkeletonInstance().ModelState.ModelName;
             var animations = Victory ? GetRandomVictoryAnimationGroup() : GetRandomDefeatAnimationGroup();
             
-            var Entity = CreatePlayerEntity(entityPosition, faceCameraAngles, modelname, "", animations[0], false, false)[0];
+            var Entity = CreatePlayerEntity(entityPosition, faceCameraAngles, modelname, "characters/models/shared/animsets/animset_uiplayer.vmdl", animations[0], false, false)[0];
             var positionInFront = GetFrontPosition(entityPosition, faceCameraAngles, 20f);
             var textEntityPosition = new Vector(positionInFront.X, positionInFront.Y, positionInFront.Z + 40f);
             var color = member.TeamNum == 2 ? Config.TerroristTeamColor : Config.CTerroristTeamColor;

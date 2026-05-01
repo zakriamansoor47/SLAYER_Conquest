@@ -72,6 +72,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         RegisterListener<Listeners.OnServerPrecacheResources>((manifest) =>
         {
             // Add resources to the manifest for pre-caching
+            manifest.AddResource("characters/models/shared/animsets/animset_uiplayer.vmdl");
             manifest.AddResource("models/slayer/flagpole/flagpole.vmdl");
             manifest.AddResource("models/slayer/ammo_box/ammo_box.vmdl");
             manifest.AddResource("models/slayer/ammo_pouch/ammo_pouch.vmdl");

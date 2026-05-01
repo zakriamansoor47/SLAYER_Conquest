@@ -225,8 +225,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         {
             if (Flag == null || Flag.Model == null) continue;
 
-            Flag.TerroristsInSquare = GetPlayersInSquare(CsTeam.Terrorist, Flag.CaptureSquare);
-            Flag.CTerroristsInSquare = GetPlayersInSquare(CsTeam.CounterTerrorist, Flag.CaptureSquare);
+            var (TerroristsInSquare, CTerroristsInSquare) = GetPlayersInSquare(Flag.CaptureSquare);
+            Flag.TerroristsInSquare = TerroristsInSquare;
+            Flag.CTerroristsInSquare = CTerroristsInSquare;
 
             if (Flag.TerroristsInSquare.Count == 0 && Flag.CTerroristsInSquare.Count == 0) continue; // if nobody is in the square then ignore this flag
             
@@ -330,23 +331,27 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             UpdateSquareBeamsColor(Flag.SquareBeams, team, Flag.CapturedStatus, Flag.LastCapturedBy);
         }
     }
-    private List<CCSPlayerController>? GetPlayersInSquare(CsTeam team, FlagSquare square)
+    private (List<CCSPlayerController>, List<CCSPlayerController>) GetPlayersInSquare(FlagSquare square)
     {
-        if (square == null) return null;
+        if (square == null) return (new List<CCSPlayerController>(), new List<CCSPlayerController>());
 
-        var playersInSquare = new List<CCSPlayerController>();
+        var TPlayersInSquare = new List<CCSPlayerController>();
+        var CTPlayersInSquare = new List<CCSPlayerController>();
 
         foreach (var player in activePlayers)
         {
-            if (player == null || !player.IsValid || player.TeamNum <= 1 || player.Team != team || player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
+            if (player == null || !player.IsValid || player.TeamNum <= 1|| player.Pawn.Value == null || player.Pawn.Value.LifeState != (byte)LifeState_t.LIFE_ALIVE) continue;
 
             if (IsInSquare(player.PlayerPawn.Value.AbsOrigin, square))
             {
-                playersInSquare.Add(player);
+                if (player.Team == CsTeam.Terrorist)
+                    TPlayersInSquare.Add(player);
+                else
+                    CTPlayersInSquare.Add(player);
             }
         }
 
-        return playersInSquare;
+        return (TPlayersInSquare, CTPlayersInSquare);
     }
     private int GetFlagsCapturedBy(CsTeam team)
     {

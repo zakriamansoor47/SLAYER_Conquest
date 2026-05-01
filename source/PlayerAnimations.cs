@@ -32,6 +32,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         
         if (animations.Count > 0)
         {
+            Server.PrintToChatAll($"Playing next animation: {animations[nextIndex]}");
+            poseEntity.UseAnimGraph = false; // Ensure we're not using the default anim graph
             poseEntity.AcceptInput("SetAnimation", value: animations[nextIndex]);
             poseEntity.IdleAnim = animations[nextIndex];
         }

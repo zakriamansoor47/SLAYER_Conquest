@@ -427,7 +427,7 @@ public partial class SLAYER_Conquest
 
 		public static void Init()
 		{
-			g_pRayTraceHandle = (nint)Utilities.MetaFactory("CRayTraceInterface001")!;
+			g_pRayTraceHandle = (nint)Utilities.MetaFactory("CRayTraceInterface002")!;
 
 			if (g_pRayTraceHandle == nint.Zero)
 				throw new Exception("Failed to get Ray-Trace interface handle. Is Ray-Trace MetaMod module loaded?");
