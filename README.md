@@ -2,7 +2,6 @@
 # Donation
 If you like this project, consider supporting me:
 
-<a href="https://www.buymeacoffee.com/slayer47" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 [![PayPal](https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg)](https://paypal.me/zakriamansoor)
 
 # SLAYER Conquest ![](https://img.shields.io/github/downloads/zakriamansoor47/SLAYER_Conquest/total?style=for-the-badge)
@@ -48,7 +47,8 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 - **CounterStrikeSharp**: Latest version
 - **[T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)**: For menu functionality
 - **[RayTrace v1.0.13](https://github.com/zakriamansoor47/Ray-Trace)**: For raytracing functionality
-- **[Custom Models & Particles](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)**: Workshop collection with required assets
+- **[Custom Models & Particles](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)**: Workshop item with required assets
+- **[MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager)**: To download the required workshop item
 - **[SLAYER_SpawnDuplicator](https://github.com/zakriamansoor47/SLAYER_SpawnDuplicator)**: (Optional) To create extra spawn points for players (like spawning 64 players on a map with only 16 spawn points)
 
 ## ⚙️ Installation
@@ -57,7 +57,8 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 2. Install required dependencies:
    - Download and install [T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)
    - Download and install [RayTrace v1.0.13](https://github.com/zakriamansoor47/Ray-Trace)
-3. Subscribe to the [Required Assets Workshop Collection](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
+3. Subscribe to the [Required Assets Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
+   - Use [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) to download the workshop item. Also make sure the item is fully updated in `cs2_server\game\bin\win64\steamapps\workshop\content\730\3521617845`
 4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_Conquest/`
 5. Configure the plugin using the generated config file
 6. Set up flag positions using the admin commands
