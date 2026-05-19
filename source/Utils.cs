@@ -465,6 +465,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 clone.IdleAnim = "tools_preview"; // first frame of the animation to avoid T-pose
                 clone.IdleAnim = animation; // play animation
                 clone.IdleAnimLoopMode = PlayAnimationsInLoop ? AnimLoopMode_t.ANIM_LOOP_MODE_LOOPING : AnimLoopMode_t.ANIM_LOOP_MODE_NOT_LOOPING;
+                HookSingleEntityOutput(clone, "OnAnimationDone", HookOnAnimationDone);
                 clone.DispatchSpawn();
                 clone.Teleport(Position, Rotation, Vector.Zero);
                 models[1] = clone;
@@ -475,8 +476,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             model.IdleAnim = "tools_preview"; // first frame of the animation to avoid T-pose
             model.IdleAnim = animation; // play animation
             model.IdleAnimLoopMode = PlayAnimationsInLoop ? AnimLoopMode_t.ANIM_LOOP_MODE_LOOPING : AnimLoopMode_t.ANIM_LOOP_MODE_NOT_LOOPING; // play animation in loop
+            HookSingleEntityOutput(model, "OnAnimationDone", HookOnAnimationDone);
         }
-        HookSingleEntityOutput(model, "OnAnimationDone", HookOnAnimationDone);
         model.DispatchSpawn();
         model.Teleport(Position, Rotation, Vector.Zero);
         models[0] = model;
