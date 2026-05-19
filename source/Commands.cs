@@ -20,7 +20,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
         CTFSettingsMenu(player);
     }
-    [ConsoleCommand("test", "Test command")]
+    /*[ConsoleCommand("test", "Test command")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void CreateEntityCMD(CCSPlayerController? player, CommandInfo command)
     {
@@ -36,7 +36,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
 
 
     }
-    /*[ConsoleCommand("teleport", "Teleport the player to a specific location")]
+    [ConsoleCommand("teleport", "Teleport the player to a specific location")]
     [RequiresPermissions("@css/root")] // Only admins can use this command
     public void TeleportPlayerCMD(CCSPlayerController? player, CommandInfo command)
     {

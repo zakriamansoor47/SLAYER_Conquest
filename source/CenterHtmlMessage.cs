@@ -1,73 +1,79 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
-using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 
 namespace SLAYER_Conquest;
 
 public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
-    public Dictionary<int, (string, float, RecipientFilter, float)> CenterMessageLines = new Dictionary<int, (string, float, RecipientFilter, float)>();
-    private bool _isSorting = false;
-    private bool _centerLinesDirty = true;
-    private readonly List<KeyValuePair<int, (string, float, RecipientFilter, float)>> _sortedCenterLinesCache = new List<KeyValuePair<int, (string, float, RecipientFilter, float)>>();
+    private struct CenterMessageLine
+    {
+        public string Message;
+        public float Duration;
+        public float StartTime;
+
+        public CenterMessageLine(string message, float duration, float startTime)
+        {
+            Message = message;
+            Duration = duration;
+            StartTime = startTime;
+        }
+    }
+
+    private readonly Dictionary<CCSPlayerController, Dictionary<int, CenterMessageLine>> _centerMessageLinesByPlayer = new();
 
     /// <summary>
     /// Tick function to display the combined center message
     /// </summary>
     private void PrintCenterMessageTick()
     {
-        if (CenterMessageLines == null || CenterMessageLines.Count == 0) return;
+        if (_centerMessageLinesByPlayer.Count == 0) return;
 
-        // Get all valid players once
         var validPlayers = activePlayers;
-
         if (validPlayers.Count == 0) return;
-
-        List<int>? expiredLines = null;
-        foreach (var line in CenterMessageLines)
-        {
-            // Calculate elapsed time
-            float elapsedTime = Server.CurrentTime - line.Value.Item4;
-            float remainingTime = line.Value.Item2 - elapsedTime;
-            if (line.Value.Item2 > 0f && remainingTime < 0f)
-            {
-                expiredLines ??= new List<int>();
-                expiredLines.Add(line.Key);
-            }
-        }
-
-        if (expiredLines != null)
-        {
-            foreach (var lineId in expiredLines)
-            {
-                RemoveCenterMessageLine(lineId);
-            }
-
-            if (CenterMessageLines.Count == 0) return;
-        }
-
-        var sortedLines = GetSortedCenterLines();
-        if (sortedLines.Count == 0) return;
 
         var playerMessages = new List<string>();
         foreach (var player in validPlayers)
         {
-            if (player == null || !player.IsValid) continue;
+            if (!IsPlayerValid(player)) continue;
 
-            playerMessages.Clear();
-
-            // Add specific messages for this player
-            foreach (var line in sortedLines)
+            if (!_centerMessageLinesByPlayer.TryGetValue(player, out var playerLines) || playerLines.Count == 0)
             {
-                var recipients = line.Value.Item3;
-                if (recipients != null && recipients.Count > 0 && recipients.Contains(player))
+                continue;
+            }
+
+            List<int>? expiredLines = null;
+            foreach (var line in playerLines)
+            {
+                float elapsedTime = Server.CurrentTime - line.Value.StartTime;
+                float remainingTime = line.Value.Duration - elapsedTime;
+                if (line.Value.Duration > 0f && remainingTime < 0f)
                 {
-                    playerMessages.Add(line.Value.Item1);
+                    expiredLines ??= new List<int>();
+                    expiredLines.Add(line.Key);
                 }
             }
 
-            // Send combined message if any exist
+            if (expiredLines != null)
+            {
+                foreach (var lineId in expiredLines)
+                {
+                    playerLines.Remove(lineId);
+                }
+
+                if (playerLines.Count == 0)
+                {
+                    _centerMessageLinesByPlayer.Remove(player);
+                    continue;
+                }
+            }
+
+            playerMessages.Clear();
+            foreach (var line in playerLines.OrderBy(kvp => kvp.Key))
+            {
+                playerMessages.Add(line.Value.Message);
+            }
+
             if (playerMessages.Count > 0)
             {
                 string combinedMessage = string.Join("<br>", playerMessages);
@@ -76,46 +82,151 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         }
     }
 
-    private List<KeyValuePair<int, (string, float, RecipientFilter, float)>> GetSortedCenterLines()
+    private bool IsPlayerValid(CCSPlayerController? player)
     {
-        if (!_centerLinesDirty) return _sortedCenterLinesCache;
-
-        _sortedCenterLinesCache.Clear();
-        _sortedCenterLinesCache.AddRange(CenterMessageLines.OrderBy(kvp => kvp.Key));
-        _centerLinesDirty = false;
-        return _sortedCenterLinesCache;
+        return player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && player.TeamNum >= 1 && !player.IsBot && !player.IsHLTV;
     }
 
-    private void MarkCenterLinesDirty()
+    private Dictionary<int, CenterMessageLine> GetOrCreatePlayerLines(CCSPlayerController player)
     {
-        _centerLinesDirty = true;
+        if (!_centerMessageLinesByPlayer.TryGetValue(player, out var playerLines))
+        {
+            playerLines = new Dictionary<int, CenterMessageLine>();
+            _centerMessageLinesByPlayer[player] = playerLines;
+        }
+
+        return playerLines;
+    }
+
+    private List<CCSPlayerController> GetTargetPlayers(RecipientFilter? recipients)
+    {
+        var players = new List<CCSPlayerController>();
+        if (recipients != null && recipients.Count > 0) // If specific recipients are provided, use them
+        {
+            foreach (var player in recipients)
+            {
+                if (IsPlayerValid(player))
+                {
+                    players.Add(player);
+                }
+            }
+
+            return players;
+        }
+
+        // If no specific recipients, target all valid players
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (IsPlayerValid(player))
+            {
+                players.Add(player);
+            }
+        }
+
+        return players;
+    }
+
+    private int GetNextAvailableLineIdForPlayer(Dictionary<int, CenterMessageLine> playerLines)
+    {
+        if (playerLines.Count == 0) return 1;
+        return playerLines.Keys.Max() + 1;
     }
 
     /// <summary>
     /// Add a line to the center message
     /// </summary>
-    /// <param name="lineId">Unique identifier for the line</param>
+    /// <param name="lineId">Unique identifier for the line (0 = auto-generate)</param>
     /// <param name="message">The message text for this line</param>
-    /// <param name="recipients">Target players (null = all players)</param>
+    /// <param name="recipients">Target players (null/empty = none)</param>
     /// <param name="duration">How long to display this line (in seconds)</param>
     public void AddCenterMessageLine(int lineId = 0, string message = "", RecipientFilter? recipients = null, float duration = 5f)
     {
         if (lineId < 0 || string.IsNullOrWhiteSpace(message)) return;
 
-        // Get the actual line ID that will be used
-        int actualLineId = lineId > 0 ? lineId : GetNextAvailableLineId();
+        var targetPlayers = GetTargetPlayers(recipients);
+        if (targetPlayers.Count == 0) return;
 
-        // Remove existing line if updating
-        if (CenterMessageLines.ContainsKey(actualLineId))
+        foreach (var player in targetPlayers)
         {
-            RemoveCenterMessageLine(actualLineId);
+            var playerLines = GetOrCreatePlayerLines(player);
+
+            int actualLineId = lineId > 0 ? lineId : GetNextAvailableLineIdForPlayer(playerLines);
+            playerLines[actualLineId] = new CenterMessageLine(message, duration, Server.CurrentTime);
+        }
+    }
+
+    /// <summary>
+    /// Update an existing line with new content, recipients, or duration
+    /// </summary>
+    /// <param name="recipients">Target players (null/empty = all existing keys)</param>
+    /// <param name="lineId">Unique identifier of the line to update</param>
+    /// <param name="newMessage">New message text</param>
+    /// <param name="duration">New duration (0 = keep existing)</param>
+    /// <param name="resetTimer">If true, resets the timer to the new duration; if false, keeps remaining time</param>
+    public void UpdateCenterMessageLine(RecipientFilter? recipients, int lineId, string newMessage, float duration = 0f, bool resetTimer = false)
+    {
+        if (lineId <= 0 || string.IsNullOrWhiteSpace(newMessage)) return;
+
+        var targetPlayers = GetTargetPlayers(recipients);
+        if (targetPlayers.Count == 0) return;
+
+        foreach (var player in targetPlayers)
+        {
+            UpdateCenterMessageLineForPlayer(player, lineId, newMessage, duration, resetTimer);
+        }
+    }
+
+    private void UpdateCenterMessageLineForPlayer(CCSPlayerController player, int lineId, string newMessage, float duration, bool resetTimer)
+    {
+        var playerLines = GetOrCreatePlayerLines(player);
+
+        if (!playerLines.TryGetValue(lineId, out var existingLine))
+        {
+            playerLines[lineId] = new CenterMessageLine(newMessage, duration, Server.CurrentTime);
+            return;
         }
 
+        float elapsedTime = Server.CurrentTime - existingLine.StartTime;
+        float remainingTime = existingLine.Duration - elapsedTime;
+        if (existingLine.Duration == 0f) remainingTime = 0f;
+        else if (remainingTime < 0f)
+        {
+            return;
+        }
 
-        //Server.PrintToChatAll($"Adding line: {actualLineId} | {Server.CurrentTime} | {message}");
-        // Add the new line using the actual line ID
-        CenterMessageLines[actualLineId] = (message, duration, recipients ?? new RecipientFilter(), Server.CurrentTime);
-        MarkCenterLinesDirty();
+        float newDuration = resetTimer ? duration : remainingTime;
+        float newStartTime = resetTimer ? Server.CurrentTime : existingLine.StartTime;
+        playerLines[lineId] = new CenterMessageLine(newMessage, newDuration, newStartTime);
+    }
+
+    public void ExtendCenterMessageLine(RecipientFilter? recipients, int lineId, string newMessage, float duration = -1f)
+    {
+        if (lineId <= 0 || string.IsNullOrEmpty(newMessage)) return;
+
+        var targetPlayers = GetTargetPlayers(recipients);
+        if (targetPlayers.Count == 0) return;
+
+        foreach (var player in targetPlayers)
+        {
+            if (!_centerMessageLinesByPlayer.TryGetValue(player, out var playerLines)) continue;
+            if (!playerLines.TryGetValue(lineId, out var existingLine)) continue;
+
+            float newDuration = duration > 0 ? duration : existingLine.Duration;
+            float newStartTime = duration > 0 ? Server.CurrentTime : existingLine.StartTime;
+            playerLines[lineId] = new CenterMessageLine(existingLine.Message + newMessage, newDuration, newStartTime);
+        }
+    }
+
+    public void ExtendCenterMessageLineForPlayer(CCSPlayerController player, int lineId, string newMessage, float duration = -1f)
+    {
+        if (lineId <= 0 || string.IsNullOrEmpty(newMessage) || player == null) return;
+
+        if (!_centerMessageLinesByPlayer.TryGetValue(player, out var playerLines)) return;
+        if (!playerLines.TryGetValue(lineId, out var existingLine)) return;
+
+        float newDuration = duration > 0 ? duration : existingLine.Duration;
+        float newStartTime = duration > 0 ? Server.CurrentTime : existingLine.StartTime;
+        playerLines[lineId] = new CenterMessageLine(existingLine.Message + newMessage, newDuration, newStartTime);
     }
 
     /// <summary>
@@ -124,202 +235,24 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// <param name="lineId">Unique identifier of the line to remove</param>
     public void RemoveCenterMessageLine(int lineId)
     {
-        if (lineId <= 0 || !CenterMessageLines.ContainsKey(lineId)) return;
+        if (lineId <= 0) return;
 
-        // Remove the line
-        CenterMessageLines.Remove(lineId);
-        MarkCenterLinesDirty();
-    }
-
-    /// <summary>
-    /// Update an existing line with new content, recipients, or duration
-    /// </summary>
-    /// <param name="lineId">Unique identifier of the line to update</param>
-    /// <param name="newMessage">New message text</param>
-    /// <param name="recipients">New recipients (null = keep existing)</param>
-    /// <param name="duration">New duration (0 = keep existing)</param>
-    /// <param name="resetTimer">If true, resets the timer to the new duration; if false, keeps remaining time</param>
-    /// </summary>
-    public void UpdateCenterMessageLine(int lineId, string newMessage, RecipientFilter? recipients = null, float duration = 0f, bool resetTimer = false)
-    {
-        if (lineId <= 0 || string.IsNullOrWhiteSpace(newMessage)) return;
-
-        if (!CenterMessageLines.ContainsKey(lineId))
+        var players = _centerMessageLinesByPlayer.Keys.ToList();
+        foreach (var player in players)
         {
-            // If line 1 doesn't exist, just add it
-            AddCenterMessageLine(lineId, newMessage, recipients, duration);
-            return;
-        }
+            if (!_centerMessageLinesByPlayer.TryGetValue(player, out var playerLines)) continue;
 
-        // Calculate elapsed time
-        float elapsedTime = Server.CurrentTime - CenterMessageLines[lineId].Item4;
-        float remainingTime = CenterMessageLines[lineId].Item2 - elapsedTime;
-        if (CenterMessageLines[lineId].Item2 == 0) remainingTime = 0f; // Permanent lines
-        else if (remainingTime < 0f) { return; } // Skip expired lines
-
-        // updated line
-        CenterMessageLines[lineId] = (newMessage, resetTimer ? duration : remainingTime, recipients ?? CenterMessageLines[lineId].Item3, resetTimer ? Server.CurrentTime : CenterMessageLines[lineId].Item4);
-        MarkCenterLinesDirty();
-    }
-
-    public void ExtendCenterMessageLine(int lineId, string newMessage, float duration = -1f)
-    {
-        if (lineId <= 0 || !CenterMessageLines.ContainsKey(lineId)) return;
-        if (string.IsNullOrEmpty(newMessage)) return;
-
-        var existingLine = CenterMessageLines[lineId];
-
-        // Update the line with new timer and duration
-        CenterMessageLines[lineId] = (existingLine.Item1 + newMessage, existingLine.Item2 + duration > 0 ? duration : 0f, existingLine.Item3, duration > 0 ? Server.CurrentTime : existingLine.Item4);
-        MarkCenterLinesDirty();
-    }
-
-    /// <summary>
-    /// Insert a line at a specific index and shift existing lines down
-    /// </summary>
-    /// <param name="insertIndex">The index where to insert the new line</param>
-    /// <param name="message">The message text for this line</param>
-    /// <param name="recipients">Target players (null = all players)</param>
-    /// <param name="duration">How long to display this line (in seconds)</param>
-    public void InsertCenterMessageLineAtIndex(int insertIndex, string message, RecipientFilter? recipients = null, float duration = 5f)
-    {
-        if (insertIndex <= 0 || string.IsNullOrWhiteSpace(message)) return;
-
-        // Get all existing lines sorted by ID
-        var existingLines = CenterMessageLines.OrderBy(kvp => kvp.Key).ToList();
-
-        // Clear the dictionary (but keep the line data)
-        ClearAllCenterMessageLines();
-
-        // Re-add lines with shifted IDs
-        foreach (var line in existingLines)
-        {
-            int oldId = line.Key;
-            int newId = oldId >= insertIndex ? oldId + 1 : oldId; // Shift lines at or after insertIndex
-
-            // Calculate elapsed time
-            float elapsedTime = Server.CurrentTime - line.Value.Item4;
-            float remainingTime = line.Value.Item2 - elapsedTime;
-            if (line.Value.Item2 == 0) remainingTime = 0f; // Permanent lines
-            else if (remainingTime < 0f) continue; // Skip expired lines
-            // Add the line with new ID
-            AddCenterMessageLine(newId, line.Value.Item1, line.Value.Item3, remainingTime);
-        }
-
-        // Add the new line at the specified index
-        AddCenterMessageLine(insertIndex, message, recipients, duration);
-    }
-
-    /// <summary>
-    /// Move a line from one position to another
-    /// </summary>
-    /// <param name="fromLineId">Source line ID</param>
-    /// <param name="toLineId">Target line ID</param>
-    public void MoveCenterMessageLine(int fromLineId, int toLineId)
-    {
-        if (fromLineId <= 0 || toLineId <= 0 || !CenterMessageLines.ContainsKey(fromLineId)) return;
-        if (fromLineId == toLineId) return; // No need to move
-
-        // Get the line to move
-        var lineToMove = CenterMessageLines[fromLineId];
-
-        // Remove the line from current position
-        RemoveCenterMessageLine(fromLineId);
-
-        // Insert at new position (this will shift other lines)
-        InsertCenterMessageLineAtIndex(toLineId, lineToMove.Item1, lineToMove.Item3, lineToMove.Item2);
-    }
-    /// <summary>
-    /// Helper function to get the next available line ID
-    /// </summary>
-    /// <returns>The next available line ID (highest existing ID + 1)</returns>
-    public int GetNextAvailableLineId()
-    {
-        if (CenterMessageLines.Count == 0) return 1;
-        return CenterMessageLines.Keys.Max() + 1;
-    }
-
-    /// <summary>
-    /// Compact line IDs to remove gaps (1, 2, 3, 4... instead of 1, 3, 7, 10...)
-    /// </summary>
-    public void SortCenterMessageLines()
-    {
-        if (_isSorting) return; // Prevent recursion
-
-        _isSorting = true;
-
-        try
-        {
-            // Get all existing lines sorted by ID
-            var existingLines = CenterMessageLines.OrderBy(kvp => kvp.Key).ToList();
-            if (existingLines.Count == 0) return;
-
-            // Clear the dictionary
-            ClearAllCenterMessageLines();
-
-            // Re-add lines with sequential IDs starting from 1
-            for (int i = 0; i < existingLines.Count; i++)
+            if (playerLines.Remove(lineId) && playerLines.Count == 0)
             {
-                var line = existingLines[i].Value;
-
-                // Calculate remaining time
-                float elapsedTime = Server.CurrentTime - line.Item4;
-                float remainingTime = line.Item2 - elapsedTime;
-
-                if (line.Item2 == 0) remainingTime = 0f; // Permanent lines
-                else if (remainingTime < 0f) continue; // Skip expired lines
-
-                AddCenterMessageLine(i + 1, line.Item1, line.Item3, remainingTime);
-            }
-        }
-        finally
-        {
-            _isSorting = false;
-        }
-    }
-
-    /// <summary>
-    /// Insert multiple lines at once, starting from a specific index
-    /// </summary>
-    /// <param name="startIndex">Starting index for insertion</param>
-    /// <param name="messages">Array of messages to insert</param>
-    /// <param name="recipients">Target players (null = all players)</param>
-    /// <param name="duration">Duration for all inserted lines</param>
-    public void InsertMultipleCenterMessageLines(int startIndex, string[] messages, RecipientFilter? recipients = null, float duration = 5f)
-    {
-        if (startIndex <= 0 || messages == null || messages.Length == 0) return;
-
-        // Insert lines one by one (this will properly shift existing lines)
-        for (int i = 0; i < messages.Length; i++)
-        {
-            if (!string.IsNullOrWhiteSpace(messages[i]))
-            {
-                InsertCenterMessageLineAtIndex(startIndex + i, messages[i], recipients, duration);
+                _centerMessageLinesByPlayer.Remove(player);
             }
         }
     }
 
-    /// <summary>
-    /// Get the display order of all lines (sorted by line ID)
-    /// </summary>
-    /// <returns>Dictionary with display order and line content</returns>
-    public Dictionary<int, string> GetDisplayOrder()
+    public bool HasCenterMessageLine(CCSPlayerController player, int lineId)
     {
-        return CenterMessageLines.OrderBy(kvp => kvp.Key).ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Item1);
-    }
-
-    /// <summary>
-    /// Get the specific line message
-    /// </summary>
-    /// <param name="lineId">Line ID to retrieve</param>
-    /// <returns>Line message content</returns>
-    public string GetCenterMessageLine(int lineId)
-    {
-        if (CenterMessageLines.TryGetValue(lineId, out var line))
-        {
-            return line.Item1;
-        }
-        return "";
+        if (lineId <= 0 || player == null) return false;
+        return _centerMessageLinesByPlayer.TryGetValue(player, out var playerLines) && playerLines.ContainsKey(lineId);
     }
 
     /// <summary>
@@ -327,76 +260,12 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     /// </summary>
     public void ClearAllCenterMessageLines()
     {
-
-        // Clear the dictionary
-        CenterMessageLines.Clear();
-        _sortedCenterLinesCache.Clear();
-        MarkCenterLinesDirty();
+        _centerMessageLinesByPlayer.Clear();
     }
 
-    /// <summary>
-    /// Get all current line IDs
-    /// </summary>
-    /// <returns>List of all active line IDs</returns>
-    public List<int> GetActiveCenterMessageLines()
+    public void ClearCenterMessageLinesForPlayer(CCSPlayerController player)
     {
-        return CenterMessageLines.Keys.ToList();
-    }
-
-    /// <summary>
-    /// Check if a specific line exists
-    /// </summary>
-    /// <param name="lineId">Line ID to check</param>
-    /// <returns>True if line exists</returns>
-    public bool HasCenterMessageLine(int lineId)
-    {
-        return CenterMessageLines.ContainsKey(lineId);
-    }
-    /// <summary>
-    /// Extend the duration of an existing line
-    /// </summary>
-    /// <param name="lineId">Line ID to extend</param>
-    /// <param name="additionalDuration">Additional time in seconds</param>
-    public void ExtendCenterMessageLine(int lineId, float additionalDuration)
-    {
-        if (lineId <= 0 || !CenterMessageLines.ContainsKey(lineId)) return;
-        if (additionalDuration <= 0) return;
-
-        var existingLine = CenterMessageLines[lineId];
-
-
-        // Update the line with new timer and duration
-        CenterMessageLines[lineId] = (existingLine.Item1, existingLine.Item2 + additionalDuration, existingLine.Item3, existingLine.Item4);
-        MarkCenterLinesDirty();
-    }
-
-    /// <summary>
-    /// Set a line to be permanent (remove auto-removal timer)
-    /// </summary>
-    /// <param name="lineId">Line ID to make permanent</param>
-    public void MakeLinePermanent(int lineId)
-    {
-        if (lineId <= 0 || !CenterMessageLines.ContainsKey(lineId)) return;
-
-        var existingLine = CenterMessageLines[lineId];
-
-        // Update with no timer (permanent)
-        CenterMessageLines[lineId] = (existingLine.Item1, 0f, existingLine.Item3, existingLine.Item4);
-        MarkCenterLinesDirty();
-    }
-    
-    public void AddRecipientToLine(int lineId, CCSPlayerController player)
-    {
-        if (lineId <= 0 || !CenterMessageLines.ContainsKey(lineId) || player == null || !player.IsValid) return;
-
-        var existingLine = CenterMessageLines[lineId];
-        var recipients = existingLine.Item3 ?? new RecipientFilter();
-
-        if (!recipients.Contains(player))
-        {
-            recipients.Add(player);
-            CenterMessageLines[lineId] = (existingLine.Item1, existingLine.Item2, recipients, existingLine.Item4);
-            MarkCenterLinesDirty();
-        }
+        if (player == null) return;
+        _centerMessageLinesByPlayer.Remove(player);
     }
 }

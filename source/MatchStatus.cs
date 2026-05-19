@@ -203,7 +203,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         // Announce the match result
         ClearAllCenterMessageLines(); // Clear any existing center message lines
         var winnerColor = MatchStatus.Status == MatchStatusType.TerroristWin ? Config.TerroristTeamColor : Config.CTerroristTeamColor;
-        UpdateCenterMessageLine(1, Localizer["CenterHtml.WinnerAnnouncement", winnerColor, Winner], recipientFilter, -1, true);
+        UpdateCenterMessageLine(recipientFilter, 1, Localizer["CenterHtml.WinnerAnnouncement", winnerColor, Winner], -1, true);
         MatchStatus.BestSquad = GetBestSquad()!; // Get the best squad of the match to show in the match end screen 
         // Calculate text position in front of camera
         var pos = CalculateTextPosition();
@@ -220,9 +220,9 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
             }
             // Print best squad details
             var squadMembers = string.Join(", ", MatchStatus.BestSquad.Members.Keys.Where(m => m != null && m.IsValid).Select(m => PlayerStatuses[m].DefaultName));
-            UpdateCenterMessageLine(2, Localizer["CenterHtml.BestSquadName", MatchStatus.BestSquad.SquadName, MatchStatus.BestSquad.TotalPoints], recipientFilter, -1, true);
-            UpdateCenterMessageLine(3, Localizer["CenterHtml.BestSquadStats", MatchStatus.BestSquad.TotalKills, MatchStatus.BestSquad.TotalAssists, MatchStatus.BestSquad.TotalRevives], recipientFilter, -1, true);
-            UpdateCenterMessageLine(4, Localizer["CenterHtml.BestSquadMembers", squadMembers], recipientFilter, -1, true);
+            UpdateCenterMessageLine(recipientFilter, 2, Localizer["CenterHtml.BestSquadName", MatchStatus.BestSquad.SquadName, MatchStatus.BestSquad.TotalPoints], -1, true);
+            UpdateCenterMessageLine(recipientFilter, 3, Localizer["CenterHtml.BestSquadStats", MatchStatus.BestSquad.TotalKills, MatchStatus.BestSquad.TotalAssists, MatchStatus.BestSquad.TotalRevives], -1, true);
+            UpdateCenterMessageLine(recipientFilter, 4, Localizer["CenterHtml.BestSquadMembers", squadMembers], -1, true);
         }
         // Select a random map from the map list for changing after match end
         var map = GetRandomMapsFromList(Config.MapList, 1)[0];

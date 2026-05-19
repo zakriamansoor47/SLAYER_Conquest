@@ -553,7 +553,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         classSubMenu.AddOption($"<font color='lime'>SELECT THIS CLASS</font>", (p2, opt2) =>
         {
             SelectPlayerClass(player, classType);
-            if (parentMenu != null) MenuManager!.OpenMainMenu(player, parentMenu); // Reopen the parent menu after selection
+            if (parentMenu != null) {OpenPlayerClassMenu(player);} // Reopen the class selection menu to show the updated selection, otherwise just close the menu
             else MenuManager!.CloseMenu(player); // Close the menu if there is no parent
         });
 

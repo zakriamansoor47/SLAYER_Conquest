@@ -15,7 +15,7 @@ namespace SLAYER_Conquest;
 public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_ConquestConfig>
 {
     public override string ModuleName => "SLAYER_Conquest";
-    public override string ModuleVersion => "1.1";
+    public override string ModuleVersion => "1.1.5";
     public override string ModuleAuthor => "SLAYER";
     public override string ModuleDescription => "Battlefield/DeltaForce style Conquest game mode";
     public required SLAYER_ConquestConfig Config { get; set; }
@@ -72,7 +72,6 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         RegisterListener<Listeners.OnServerPrecacheResources>((manifest) =>
         {
             // Add resources to the manifest for pre-caching
-            manifest.AddResource("characters/models/shared/animsets/animset_uiplayer.vmdl");
             manifest.AddResource("models/slayer/flagpole/flagpole.vmdl");
             manifest.AddResource("models/slayer/ammo_box/ammo_box.vmdl");
             manifest.AddResource("models/slayer/ammo_pouch/ammo_pouch.vmdl");
@@ -630,17 +629,13 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
                 if (PlayerStatuses.ContainsKey(player) && !string.IsNullOrEmpty(PlayerStatuses[player].DefaultName)) PlayerName = PlayerStatuses[player].DefaultName; // Use default name if set
                 //var KillSymbol = @event.Headshot == true ? "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/wZDrtkxG/headshot.png\" alt=\"headshot\" border=\"0\"></a>" : "<a href=\"https://imgbb.com/\"><img src=\"https://i.ibb.co/93fMBmcB/kill.png\" alt=\"kill\" border=\"0\"></a>"; // Headshot symbol
                 var KillSymbol = @event.Headshot == true ? "<img src='s2r://panorama/images/icons/bf_headshot.vsvg' />" : "<img src='s2r://panorama/images/icons/bf_kill.vsvg' />";
-                // Use attacker-specific line IDs so kill info cannot collide with shared/global center lines.
-                int attackerSlot = Math.Max(attacker.Slot, 0);
-                int killIconLineId = 1000 + attackerSlot;
-                int killInfoLineId = 1100 + attackerSlot;
 
-                if (!CenterMessageLines.ContainsKey(killIconLineId))
-                    UpdateCenterMessageLine(killIconLineId, KillSymbol, new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                if (!HasCenterMessageLine(attacker, 3))
+                    UpdateCenterMessageLineForPlayer(attacker, 3, KillSymbol, Config.ShowKillInfoTime, true);
                 else
-                    ExtendCenterMessageLine(killIconLineId, $" {KillSymbol}", Config.ShowKillInfoTime);
+                    ExtendCenterMessageLineForPlayer(attacker, 3, $" {KillSymbol}", Config.ShowKillInfoTime);
 
-                UpdateCenterMessageLine(killInfoLineId, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(@event.Weapon).ToUpper()}]</font>", new RecipientFilter { attacker }, Config.ShowKillInfoTime, true);
+                UpdateCenterMessageLineForPlayer(attacker, 4, $"<br><font class='fontSize-m' color='red'>Killed</font> <font class='fontSize-m' color='lime'>{PlayerName}</font> <font class='fontSize-m' color='gold'>[{RemoveWeaponPrefix(@event.Weapon).ToUpper()}]</font>", Config.ShowKillInfoTime, true);
             }
 
             // Play kill sound to the attacker
@@ -751,7 +746,7 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
         AvailableRevives.Clear();
         Flagpoles?.Clear();
         FlagPositions.Clear();
-        CenterMessageLines.Clear();
+        ClearAllCenterMessageLines();
         DeadPlayersPosition.Clear();
         DeadPlayersTimer.Clear();
         PlayerSquads.Clear();
@@ -777,6 +772,8 @@ public partial class SLAYER_Conquest : BasePlugin, IPluginConfig<SLAYER_Conquest
     private void CleanPlayerStuff(CCSPlayerController player)
     {
         if (player == null || !player.IsValid) return;
+
+        ClearCenterMessageLinesForPlayer(player);
 
         if (PlayerStatuses.ContainsKey(player)) SetName(player, PlayerStatuses[player].DefaultName); // Reset the player name to default if it was changed
 
