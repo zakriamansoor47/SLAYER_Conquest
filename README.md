@@ -56,7 +56,7 @@ SLAYER Conquest transforms Counter-Strike 2 into an immersive battlefield experi
 1. Install CounterStrikeSharp on your server
 2. Install required dependencies:
    - Download and install [T3MenuSharedApi](https://github.com/T3Marius/T3Menu-API)
-   - Download and install [RayTrace v1.0.13](https://github.com/zakriamansoor47/Ray-Trace)
+   - Download and install [RayTrace](https://github.com/zakriamansoor47/Ray-Trace)
 3. Subscribe to the [Required Assets Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3521617845)
    - Use [MultiAddonManager](https://github.com/Source2ZE/MultiAddonManager) to download the workshop item. Also make sure the item is fully updated in `cs2_server\game\bin\win64\steamapps\workshop\content\730\3521617845`
 4. Extract the plugin to `addons/counterstrikesharp/plugins/SLAYER_Conquest/`
